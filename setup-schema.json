@@ -1,0 +1,25 @@
+{
+    "$schema": "http://json-schema.org",
+    "$id": "http://yio-remote.com/mqtt.json",
+    "type": "object",
+    "title": "YIO Integration MQTT Schema",
+    "description": "Required data points to set up a MQTT integrations.",
+    "default": {},
+    "additionalProperties": true,
+    "required": [
+        "ip"
+    ],
+    "properties": {
+        "ip": {
+            "$id": "#/properties/ip",
+            "type": "string",
+            "title": "IP address or hostname and port",
+            "description": "The IP address or hostname and port of your Home Assistant server.",
+            "default": "",
+            "examples": [
+                "192.168.100.2", "yourdomain.com"
+            ]
+        }
+        }
+    }
+}
