@@ -109,7 +109,7 @@ void Mqtt::messageReceived(const QByteArray &message, const QMqttTopicName &topi
                 customFeatures.append(buttonName);
             }
             qCInfo(m_logCategory) << "adding entity:" << entityId << "with custom features:" << customFeatures;
-            addAvailableEntity(entityId, "remote", integrationId(), deviceName, supportedFeatures, customFeatures);
+            addAvailableEntityWithCustomFeatures(entityId, "remote", integrationId(), deviceName, supportedFeatures, customFeatures);
 
         }
     }
