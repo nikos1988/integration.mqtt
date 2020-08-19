@@ -82,40 +82,14 @@ class Mqtt : public Integration {
     void enterStandby() override;
     void leaveStandby() override;
 
-    void messageReceived(const QMqttMessage& message);
-    void onStateChanged(QAbstractSocket::SocketState state);
-    void onError(QAbstractSocket::SocketError error);
-    void onTimeout();
-
+    void messageReceived(const QByteArray& message, const QMqttTopicName &topic);
  private:
-    void webSocketSendCommand(const QString& domain, const QString& service, const QString& entity_id,
-                              QVariantMap* data);
-    int  convertBrightnessToPercentage(float value);
-
-    void updateEntity(const QString& entity_id, const QVariantMap& attr);
-    void updateLight(EntityInterface* entity, const QVariantMap& attr);
-    void updateBlind(EntityInterface* entity, const QVariantMap& attr);
-    void updateMediaPlayer(EntityInterface* entity, const QVariantMap& attr);
-    void updateClimate(EntityInterface* entity, const QVariantMap& attr);
-    void updateSwitch(EntityInterface* entity, const QVariantMap& attr);
-
-    void onHeartbeat();
-    void onHeartbeatTimeout();
-
-    QStringList findRemoteCodes(const QString &feature, const QVariantList &list);
-
-    /**
-     * @brief Returns a list of supported features converted from the Home Assistant format
-     */
-    QStringList supportedFeatures(const QString& entityType, const int& supportedFeatures);
+    void initOnce();
 
  private:
     QString      m_ip;
-    QMqttClient* m_mqttClient;
-    QTimer*      m_mqttReconnectTimer;
+    QMqttClient* m_mqtt;
+    bool         m_initialized = false;
     int          m_tries;
     bool         m_userDisconnect         = false;
-    int          m_heartbeatCheckInterval = 30000;
-    QTimer*      m_heartbeatTimer         = new QTimer(this);
-    QTimer*      m_heartbeatTimeoutTimer  = new QTimer(this);
 };
