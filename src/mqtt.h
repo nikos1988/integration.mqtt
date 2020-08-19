@@ -75,6 +75,14 @@ class Mqtt : public Integration {
                   YioAPIInterface* api, ConfigInterface* configObj, Plugin* plugin);
 
     void sendCommand(const QString& type, const QString& entityId, int command, const QVariant& param) override;
+    void sendCustomCommand(const QString &type, const QString &entityId, int command, const QVariant &param) override;
+
+    struct Button {
+        Button(QString name, QString topic, QString payload) : name(name), topic(topic), payload(payload) {}
+        QString name;
+        QString topic;
+        QString payload;
+    };
 
  public slots:  // NOLINT open issue: https://github.com/cpplint/cpplint/pull/99
     void connect() override;
@@ -87,9 +95,10 @@ class Mqtt : public Integration {
     void initOnce();
 
  private:
-    QString      m_ip;
-    QMqttClient* m_mqtt;
-    bool         m_initialized = false;
-    int          m_tries;
-    bool         m_userDisconnect         = false;
+    QString        m_ip;
+    QMqttClient*   m_mqtt;
+    bool           m_initialized = false;
+    QMap<QString, QList<Button>*>* m_buttons;
+    int            m_tries;
+    bool           m_userDisconnect = false;
 };

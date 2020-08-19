@@ -62,11 +62,11 @@ Mqtt::Mqtt(const QVariantMap &config, EntitiesInterface *entities,
             m_ip = map.value(Integration::KEY_DATA_IP).toString();
         }
     }
-
+    m_buttons = new QMap<QString, QList<Button>*>();
 }
 
 void Mqtt::messageReceived(const QByteArray &message, const QMqttTopicName &topic) {
-    qCInfo(m_logCategory) << "message received on topic: " + topic.name() + " payload: " << QString(message);
+    //qCInfo(m_logCategory) << "message received on topic: " + topic.name() + " payload: " << QString(message);
     QJsonParseError parseerror;
     QJsonDocument doc = QJsonDocument::fromJson(message, &parseerror);
     if (parseerror.error != QJsonParseError::NoError) {
@@ -80,6 +80,7 @@ void Mqtt::messageReceived(const QByteArray &message, const QMqttTopicName &topi
         QVariantMap devices = map.value("devices").toMap();
         for (QVariantMap::const_iterator device = devices.begin(); device != devices.end(); ++device) {
             QString deviceName = device.key();
+            QString entityId = QString("MQTT_DEVICE.").append(deviceName);
             qCInfo(m_logCategory) << "device:" << deviceName;
             QVariantMap buttons = device.value().toMap().value("Buttons").toMap();
             QStringList supportedFeatures = QStringList();
@@ -97,10 +98,19 @@ void Mqtt::messageReceived(const QByteArray &message, const QMqttTopicName &topi
                         buttonPayloadString = QString(QJsonDocument::fromVariant(buttonPayload.toMap()).toJson()).replace('\n',"");
                     break;
                 }
-                qCInfo(m_logCategory) << "button:" << buttonName << "topic:" << buttonTopic << "payload:" << buttonPayloadString;
-                // TODO implement supported and custom features here
+                Button b = Button(buttonName, buttonTopic, buttonPayloadString);
+                if (!m_buttons->contains(entityId)) {
+                    m_buttons->insert(entityId, new QList<Button>({b}));
+                } else {
+                    m_buttons->value(entityId)->append(b);
+                }
+                //qCInfo(m_logCategory) << "button:" << buttonName << "topic:" << buttonTopic << "payload:" << buttonPayloadString;
+                // TODO implement supported features
+                customFeatures.append(buttonName);
             }
-            addAvailableEntity(QString("MQTT_DEVICE.").append(deviceName), "remote", integrationId(), deviceName, supportedFeatures, customFeatures);
+            qCInfo(m_logCategory) << "adding entity:" << entityId << "with custom features:" << customFeatures;
+            addAvailableEntity(entityId, "remote", integrationId(), deviceName, supportedFeatures, customFeatures);
+
         }
     }
 
@@ -265,3 +275,8 @@ void Mqtt::sendCommand(const QString &type, const QString &entity_id, int comman
 
 }
 
+void Mqtt::sendCustomCommand(const QString &type, const QString &entityId, int command, const QVariant &param) {
+    Button button = m_buttons->value(entityId)->at(command);
+    qCInfo(m_logCategory) << "sending custom command" << button.topic << button.payload;
+    m_mqtt->publish(QMqttTopicName(button.topic), button.payload.toUtf8());
+}
