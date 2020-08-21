@@ -65,6 +65,71 @@ Mqtt::Mqtt(const QVariantMap &config, EntitiesInterface *entities,
     m_buttons = new QMap<QString, QList<Button>*>();
 }
 
+void Mqtt::handleDevices(QVariantMap &map)
+{
+    qCInfo(m_logCategory) << "converting devices to map";
+    QVariantMap devices = map.value("devices").toMap();
+
+    // iterate through all devices
+    for (QVariantMap::const_iterator device = devices.begin(); device != devices.end(); ++device) {
+        QString deviceName = device.key();
+        QString entityId = QString("MQTT_DEVICE.").append(deviceName);
+        bool updateEntity = false;
+        if (m_buttons->contains(entityId)) {
+            updateEntity = true;
+            m_buttons->value(entityId)->clear();
+        }
+        qCInfo(m_logCategory) << "device:" << deviceName;
+        QVariantMap buttons = device.value().toMap().value("Buttons").toMap();
+        QStringList supportedFeatures = QStringList();
+        QStringList customFeatures = QStringList();
+
+        // iterate through all buttons
+        for (QVariantMap::const_iterator button = buttons.begin(); button != buttons.end(); ++button) {
+            QString buttonName = button.key();
+            QString buttonTopic = button.value().toList()[0].toString();
+            QVariant buttonPayload = button.value().toList()[1];
+            QString buttonPayloadString = "";
+            switch(buttonPayload.userType()) {
+                case QMetaType::QString:
+                    buttonPayloadString = buttonPayload.toString();
+                break;
+                case QMetaType::QVariantMap:
+                    buttonPayloadString = QString(QJsonDocument::fromVariant(buttonPayload.toMap()).toJson()).replace('\n',"");
+                break;
+            }
+            Button b = Button(buttonName, buttonTopic, buttonPayloadString);
+            if (!m_buttons->contains(entityId)) {
+                m_buttons->insert(entityId, new QList<Button>({b}));
+            } else {
+                m_buttons->value(entityId)->append(b);
+            }
+            //qCInfo(m_logCategory) << "button:" << buttonName << "topic:" << buttonTopic << "payload:" << buttonPayloadString;
+
+            if (!supportedFeature(buttonName, supportedFeatures)) {
+                customFeatures.append(buttonName);
+            }
+        }
+        if (updateEntity) {
+            qCInfo(m_logCategory) << "updating entity:" << entityId << "with custom features:" << customFeatures;
+            // if the entity is already in the list, skip
+            for (int i = 0; i < m_allAvailableEntities.length(); i++) {
+                if (m_allAvailableEntities[i].toMap().value(Integration::KEY_ENTITY_ID).toString() == entityId) {
+                    QVariantMap entityMap = m_allAvailableEntities[i].toMap();
+                    entityMap[Integration::KEY_SUPPORTED_FEATURES] = supportedFeatures;
+                    if (customFeatures.size() > 0) {
+                        qWarning() << "updating custom features:" << customFeatures;
+                        entityMap[Integration::KEY_CUSTOM_FEATURES] = customFeatures;
+                    }
+                }
+            }
+        } else {
+            qCInfo(m_logCategory) << "adding entity:" << entityId << "with custom features:" << customFeatures;
+            addAvailableEntityWithCustomFeatures(entityId, "remote", integrationId(), deviceName, supportedFeatures, customFeatures);
+        }
+    }
+}
+
 void Mqtt::messageReceived(const QByteArray &message, const QMqttTopicName &topic) {
     //qCInfo(m_logCategory) << "message received on topic: " + topic.name() + " payload: " << QString(message);
     QJsonParseError parseerror;
@@ -76,132 +141,170 @@ void Mqtt::messageReceived(const QByteArray &message, const QMqttTopicName &topi
 
     QVariantMap map = doc.toVariant().toMap();
     if (map.firstKey() == "devices") {
-        qCInfo(m_logCategory) << "converting devices to map";
-        QVariantMap devices = map.value("devices").toMap();
-        for (QVariantMap::const_iterator device = devices.begin(); device != devices.end(); ++device) {
-            QString deviceName = device.key();
-            QString entityId = QString("MQTT_DEVICE.").append(deviceName);
-            qCInfo(m_logCategory) << "device:" << deviceName;
-            QVariantMap buttons = device.value().toMap().value("Buttons").toMap();
-            QStringList supportedFeatures = QStringList();
-            QStringList customFeatures = QStringList();
-            for (QVariantMap::const_iterator button = buttons.begin(); button != buttons.end(); ++button) {
-                QString buttonName = button.key();
-                QString buttonTopic = button.value().toList()[0].toString();
-                QVariant buttonPayload = button.value().toList()[1];
-                QString buttonPayloadString = "";
-                switch(buttonPayload.userType()) {
-                    case QMetaType::QString:
-                        buttonPayloadString = buttonPayload.toString();
-                    break;
-                    case QMetaType::QVariantMap:
-                        buttonPayloadString = QString(QJsonDocument::fromVariant(buttonPayload.toMap()).toJson()).replace('\n',"");
-                    break;
-                }
-                Button b = Button(buttonName, buttonTopic, buttonPayloadString);
-                if (!m_buttons->contains(entityId)) {
-                    m_buttons->insert(entityId, new QList<Button>({b}));
-                } else {
-                    m_buttons->value(entityId)->append(b);
-                }
-                //qCInfo(m_logCategory) << "button:" << buttonName << "topic:" << buttonTopic << "payload:" << buttonPayloadString;
-                // TODO implement supported features
-                customFeatures.append(buttonName);
-            }
-            qCInfo(m_logCategory) << "adding entity:" << entityId << "with custom features:" << customFeatures;
-            addAvailableEntityWithCustomFeatures(entityId, "remote", integrationId(), deviceName, supportedFeatures, customFeatures);
-
-        }
+        handleDevices(map);
     }
+}
 
-//    QString m = map.value("error").toMap().value("message").toString();
-//    if (m.length() > 0) {
-//        qCCritical(m_logCategory) << "Message error:" << m;
-//    }
+QString Mqtt::buttonNameToSupportedFeatures(QString buttonName) {
+    QString name = buttonName.replace('_',' ').toUpper();
+    if (name == "PLAY")
+        return "PLAY";
+    if (name == "PAUSE")
+        return "PAUSE";
+    if (name == "PLAY PAUSE TOGGLE")
+        return "PLAYTOGGLE";
+    if (name == "STOP")
+        return "STOP";
+    if (name == "FORWARD")
+        return "FORWARD";
+    if (name == "REVERSE")
+        return "BACKWARD";
+    if (name == "NEXT")
+        return "NEXT";
+    if (name == "PREVIOUS")
+        return "PREVIOUS";
+    if (name == "INFO")
+        return "INFO";
+    if (name == "MY RECORDINGS")
+        return "RECORDINGS";
+    if (name == "RECORD")
+        return "RECORD";
+    if (name == "LIVE")
+        return "LIVE";
+    if (name == "DIGIT 0")
+        return "DIGIT_0";
+    if (name == "DIGIT 1")
+        return "DIGIT_1";
+    if (name == "DIGIT 2")
+        return "DIGIT_2";
+    if (name == "DIGIT 3")
+        return "DIGIT_3";
+    if (name == "DIGIT 4")
+        return "DIGIT_4";
+    if (name == "DIGIT 5")
+        return "DIGIT_5";
+    if (name == "DIGIT 6")
+        return "DIGIT_6";
+    if (name == "DIGIT 7")
+        return "DIGIT_7";
+    if (name == "DIGIT 8")
+        return "DIGIT_8";
+    if (name == "DIGIT 9")
+        return "DIGIT_9";
+    if (name == "DIGIT 10")
+        return "DIGIT_10";
+    if (name == "DIGIT 10PLUS")
+        return "DIGIT_10plus";
+    if (name == "DIGIT 11")
+        return "DIGIT_11";
+    if (name == "DIGIT 12")
+        return "DIGIT_12";
+    if (name == "DIGIT SEPARATOR")
+        return "DIGIT_SEPARATOR";
+    if (name == "DIGIT ENTER")
+        return "DIGIT_ENTER";
+    if (name == "CURSOR UP")
+        return "CURSOR_UP";
+    if (name == "CURSOR DOWN")
+        return "CURSOR_DOWN";
+    if (name == "CURSOR LEFT")
+        return "CURSOR_LEFT";
+    if (name == "CURSOR RIGHT")
+        return "CURSOR_RIGHT";
+    if (name == "CURSOR ENTER")
+        return "CURSOR_OK";
+    if (name == "BACK")
+        return "BACK";
+    if (name == "MENU HOME")
+        return "HOME";
+    if (name == "MENU")
+        return "MENU";
+    if (name == "EXIT")
+        return "EXIT";
+    if (name == "APP")
+        return "APP";
+    if (name == "POWEROFF")
+        return "POWER_OFF";
+    if (name == "POWERON")
+        return "POWER_ON";
+    if (name == "POWERTOGGLE")
+        return "POWER_TOGGLE";
+    if (name == "CHANNEL UP")
+        return "CHANNEL_UP";
+    if (name == "CHANNEL DOWN")
+        return "CHANNEL_DOWN";
+    if (name == "CHANNEL SEARCH")
+        return "CHANNEL_SEARCH";
+    if (name == "FAVORITE")
+        return "FAVORITE";
+    if (name == "GUIDE")
+        return "GUIDE";
+    if (name == "FUNCTION RED")
+        return "FUNCTION_RED";
+    if (name == "FUNCTION GREEN")
+        return "FUNCTION_GREEN";
+    if (name == "FUNCTION YELLOW")
+        return "FUNCTION_YELLOW";
+    if (name == "FUNCTION BLUE")
+        return "FUNCTION_BLUE";
+    if (name == "FUNCTION ORANGE")
+        return "FUNCTION_ORANGE";
+    if (name == "FORMAT 16 9")
+        return "FORMAT_16_9";
+    if (name == "FORMAT 4 3")
+        return "FORMAT_4_3";
+    if (name == "FORMAT AUTO")
+        return "FORMAT_AUTO";
+    if (name == "VOLUME UP")
+        return "VOLUME_UP";
+    if (name == "VOLUME DOWN")
+        return "VOLUME_DOWN";
+    if (name == "MUTE TOGGLE")
+        return "MUTE_TOGGLE";
+    if (name == "SOURCE")
+        return "SOURCE";
+    if (name == "INPUT TUNER 1")
+        return "INPUT_TUNER_1";
+    if (name == "INPUT TUNER 2")
+        return "INPUT_TUNER_2";
+    if (name == "INPUT TUNER Y")
+        return "INPUT_TUNER_X";
+    if (name == "INPUT HDMI 1")
+        return "INPUT_HDMI_1";
+    if (name == "INPUT HDMI 2")
+        return "INPUT_HDMI_2";
+    if (name == "INPUT HDMI X")
+        return "INPUT_HDMI_X";
+    if (name == "INPUT X 1")
+        return "INPUT_X_1";
+    if (name == "INPUT X 2")
+        return "INPUT_X_2";
+    if (name == "OUTPUT HDMI 1")
+        return "OUTPUT_HDMI_1";
+    if (name == "OUTPUT HDMI 2")
+        return "OUTPUT_HDMI_2";
+    if (name == "OUTPUT DVI 1")
+        return "OUTPUT_DVI_1";
+    if (name == "OUTPUT AUDIO X")
+        return "OUTPUT_AUDIO_X";
+    if (name == "OUTPUT X")
+        return "OUTPUT_X";
+    if (name == "NETFLIX")
+        return "SERVICE_NETFLIX";
+    if (name == "HULU")
+        return "SERVICE_HULU";
 
-//    QString type = map.value("type").toString();
-//    int     id   = map.value("id").toInt();
+    return "";
+}
 
-//    if (type == "auth_required") {
-//        QString auth = QString("{ \"type\": \"auth\", \"access_token\": \"%1\" }\n").arg(m_token);
-//        m_webSocket->sendTextMessage(auth);
-//        return;
-//    }
-
-//    if (type == "auth_ok") {
-//        qCInfo(m_logCategory) << "Authentication successful";
-//        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//        // FETCH STATES
-//        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//        m_webSocket->sendTextMessage("{\"id\": 2, \"type\": \"get_states\"}\n");
-//    }
-
-//    if (type == "auth_invalid") {
-//        qCCritical(m_logCategory) << "Invalid authentication";
-//        disconnect();
-//        // try again after a couple of seconds
-//        m_mqttReconnectTimer->start();
-//        return;
-//    }
-
-//    // FIXME magic number!
-//    if (id == 2) {
-//        QVariantList list = map.value("result").toList();
-//        for (int i = 0; i < list.length(); i++) {
-//            QVariantMap result = list.value(i).toMap();
-
-//            // append the list of available entities
-//            QString type = result.value("entity_id").toString().split(".")[0];
-//            // rename type to match our own naming system
-//            if (type == "cover") {
-//                type = "blind";
-//            } else if (type == "input_boolean") {
-//                type = "switch";
-//            }
-//            // add entity to allAvailableEntities list
-//            addAvailableEntity(
-//                result.value("entity_id").toString(), type, integrationId(),
-//                result.value("attributes").toMap().value("friendly_name").toString(),
-//                supportedFeatures(type, result.value("attributes").toMap().value("supported_features").toInt()));
-
-//            // update the entity
-//            updateEntity(result.value("entity_id").toString(), result);
-//        }
-
-//        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//        // SUBSCRIBE TO EVENTS IN HOME ASSISTANT
-//        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//        m_webSocket->sendTextMessage(
-//            "{\"id\": 3, \"type\": \"subscribe_events\", \"event_type\": \"state_changed\"}\n");
-//    }
-
-//    // FIXME magic number!
-//    if (type == "result" && id == 3) {
-//        setState(CONNECTED);
-//        qCDebug(m_logCategory) << "Subscribed to state changes";
-
-//        // remove notifications that we don't need anymore as the integration is connected
-//        m_notifications->remove("Cannot connect to Home Assistant.");
-
-//        m_heartbeatTimer->start();
-//    }
-
-//    if (id == m_webSocketId) {
-//        qCDebug(m_logCategory) << "Command successful";
-//    }
-
-//    // FIXME magic number!
-//    if (type == "event" && id == 3) {
-//        QVariantMap data     = map.value("event").toMap().value("data").toMap();
-//        QVariantMap newState = data.value("new_state").toMap();
-//        updateEntity(data.value("entity_id").toString(), newState);
-//    }
-
-//    // heartbeat
-//    if (type == "pong") {
-//        qCDebug(m_logCategory) << "Got heartbeat!";
-//        m_heartbeatTimeoutTimer->stop();
-//    }
+bool Mqtt::supportedFeature(QString &buttonName, QStringList &supportedFeatures) {
+    QString feature = buttonNameToSupportedFeatures(buttonName);
+    if (feature != "") {
+        supportedFeatures.append(feature);
+        return true;
+    } else {
+        return false;
+    }
 }
 
 void Mqtt::connect() {
