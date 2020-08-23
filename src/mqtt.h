@@ -91,8 +91,8 @@ class Mqtt : public Integration {
     void leaveStandby() override;
 
     void messageReceived(const QByteArray& message, const QMqttTopicName &topic);
- private:
 
+ private:
     QString        m_ip;
     QMqttClient*   m_mqtt;
     bool           m_initialized = false;
@@ -100,6 +100,7 @@ class Mqtt : public Integration {
     int            m_tries;
     bool           m_userDisconnect = false;
     void handleDevices(QVariantMap &map);
+    void handleActivities(QVariantMap &map);
     void initOnce();
     QString buttonNameToSupportedFeatures(QString buttonName);
     bool supportedFeature(QString &buttonName, QStringList &supportedFeatures);
