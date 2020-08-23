@@ -106,9 +106,8 @@ void Mqtt::handleDevices(QVariantMap &map)
             }
             //qCInfo(m_logCategory) << "button:" << buttonName << "topic:" << buttonTopic << "payload:" << buttonPayloadString;
 
-            if (!supportedFeature(buttonName, supportedFeatures)) {
-                customFeatures.append(buttonName);
-            }
+            supportedFeature(buttonName, supportedFeatures);
+            customFeatures.append(buttonName);
         }
         if (updateEntity) {
             qCInfo(m_logCategory) << "updating entity:" << entityId << "with custom features:" << customFeatures;
