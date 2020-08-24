@@ -422,9 +422,6 @@ bool Mqtt::supportedFeature(QString &buttonName, QStringList &supportedFeatures)
 void Mqtt::connect() {
     m_userDisconnect = false;
     setState(CONNECTING);
-    // reset the reconnnect trial variable
-    m_tries = 0;
-
     initOnce();
     qCInfo(m_logCategory) << "Connecting to MQTT";
     m_mqtt->connectToHost();
@@ -435,66 +432,59 @@ void Mqtt::connect() {
 void Mqtt::initOnce() {
     // initialize QMqttClient here because it does not work in constructor (connection never finishes)
     if (!m_initialized) {
-    m_initialized = true;
-    qCInfo(m_logCategory) << "creating MQTT client";
-    m_mqtt = new QMqttClient(this);
-    m_mqtt->setHostname(m_ip);
-    m_mqtt->setPort(1883);
-    m_mqtt->setClientId("yio-remote-plugin");
-    qCInfo(m_logCategory) << "MQTT Broker: " << m_ip  + ":" << 1883;
-    QObject::connect(m_mqtt, &QMqttClient::connected, this, [this]() {
-       qCInfo(m_logCategory) << "MQTT connected!";
-       auto subDevices = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/devices"), 0);
-       qCInfo(m_logCategory) << "subDevices state:" << subDevices->state();
-       auto subActivities = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/activities"), 0);
-       qCInfo(m_logCategory) << "subActivities state:" << subActivities->state();
+        m_initialized = true;
+        qCInfo(m_logCategory) << "creating MQTT client";
+        m_mqtt = new QMqttClient(this);
+        m_mqtt->setHostname(m_ip);
+        m_mqtt->setPort(1883);
+        m_mqtt->setClientId("yio-remote-plugin");
+        qCInfo(m_logCategory) << "MQTT Broker: " << m_ip  + ":" << 1883;
+        QObject::connect(m_mqtt, &QMqttClient::connected, this, [this]() {
+           qCInfo(m_logCategory) << "MQTT connected!";
+           auto subDevices = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/devices"), 0);
+           qCInfo(m_logCategory) << "subDevices state:" << subDevices->state();
+           auto subActivities = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/activities"), 0);
+           qCInfo(m_logCategory) << "subActivities state:" << subActivities->state();
 
-       QTimer* deviceRequestTimer = new QTimer(this);
-       deviceRequestTimer->setSingleShot(true);
-       QObject::connect(deviceRequestTimer, &QTimer::timeout, [=]() {
-           qint32 pubDeviceRequest = m_mqtt->publish(QMqttTopicName("mqtt_urc/config/request"), "{\"RequestConfig\":\"devices\"}");
-           qCInfo(m_logCategory) << "pubDeviceRequest id:" << pubDeviceRequest;
-           deviceRequestTimer->deleteLater();
-       });
+           QTimer* deviceRequestTimer = new QTimer(this);
+           deviceRequestTimer->setSingleShot(true);
+           QObject::connect(deviceRequestTimer, &QTimer::timeout, [=]() {
+               qint32 pubDeviceRequest = m_mqtt->publish(QMqttTopicName("mqtt_urc/config/request"), "{\"RequestConfig\":\"devices\"}");
+               qCInfo(m_logCategory) << "pubDeviceRequest id:" << pubDeviceRequest;
+               deviceRequestTimer->deleteLater();
+           });
 
-       QTimer* activityRequestTimer = new QTimer(this);
-       activityRequestTimer->setSingleShot(true);
-       QObject::connect(activityRequestTimer, &QTimer::timeout, [=]() {
-           qint32 pubActivitiesRequest = m_mqtt->publish(QMqttTopicName("mqtt_urc/config/request"), "{\"RequestConfig\":\"activities\"}");
-           qCInfo(m_logCategory) << "pubActivitiesRequest id:" << pubActivitiesRequest;
-           activityRequestTimer->deleteLater();
-       });
+           QTimer* activityRequestTimer = new QTimer(this);
+           activityRequestTimer->setSingleShot(true);
+           QObject::connect(activityRequestTimer, &QTimer::timeout, [=]() {
+               qint32 pubActivitiesRequest = m_mqtt->publish(QMqttTopicName("mqtt_urc/config/request"), "{\"RequestConfig\":\"activities\"}");
+               qCInfo(m_logCategory) << "pubActivitiesRequest id:" << pubActivitiesRequest;
+               activityRequestTimer->deleteLater();
+           });
 
-       QTimer* currentActivityRequestTimer = new QTimer(this);
-       currentActivityRequestTimer->setSingleShot(true);
-       QObject::connect(currentActivityRequestTimer, &QTimer::timeout, [=]() {
-           qint32 pubCurrentActivitiesRequest = m_mqtt->publish(QMqttTopicName("mqtt_urc/config/request"), "{\"RequestConfig\":\"currentActivity\"}");
-           qCInfo(m_logCategory) << "pubCurrentActivitiesRequest id:" << pubCurrentActivitiesRequest;
-           currentActivityRequestTimer->deleteLater();
-       });
+           QTimer* currentActivityRequestTimer = new QTimer(this);
+           currentActivityRequestTimer->setSingleShot(true);
+           QObject::connect(currentActivityRequestTimer, &QTimer::timeout, [=]() {
+               qint32 pubCurrentActivitiesRequest = m_mqtt->publish(QMqttTopicName("mqtt_urc/config/request"), "{\"RequestConfig\":\"currentActivity\"}");
+               qCInfo(m_logCategory) << "pubCurrentActivitiesRequest id:" << pubCurrentActivitiesRequest;
+               currentActivityRequestTimer->deleteLater();
+           });
 
-       deviceRequestTimer->start(0);
-       activityRequestTimer->start(2000);
-       currentActivityRequestTimer->start(5000);
+           deviceRequestTimer->start(0);
+           activityRequestTimer->start(2000);
+           currentActivityRequestTimer->start(5000);
 
-       auto subCurrentActivity = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/current_activity"), 0);
-       qCInfo(m_logCategory) << "subCurrentActivity state:" << subCurrentActivity->state();
+           auto subCurrentActivity = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/current_activity"), 0);
+           qCInfo(m_logCategory) << "subCurrentActivity state:" << subCurrentActivity->state();
 
-    });
-    QObject::connect(m_mqtt, &QMqttClient::disconnected, this, [this]() {
-       qCInfo(m_logCategory) << "MQTT disconnected!";
-    });
-    QObject::connect(m_mqtt, &QMqttClient::stateChanged, this, [this](QMqttClient::ClientState state) {
-       qCInfo(m_logCategory) << "MQTT state changed:" << state;
-    });
-    QObject::connect(m_mqtt, &QMqttClient::messageReceived, this, &Mqtt::messageReceived);
-
-//    QTimer *stateTimer = new QTimer(this);
-//    stateTimer->setInterval(2000);
-//    QObject::connect(stateTimer,&QTimer::timeout,this,[this]() {
-//        qCInfo(m_logCategory) << "client state: " << m_mqtt->state();
-//    });
-//    stateTimer->start();
+        });
+        QObject::connect(m_mqtt, &QMqttClient::disconnected, this, [this]() {
+           qCInfo(m_logCategory) << "MQTT disconnected!";
+        });
+        QObject::connect(m_mqtt, &QMqttClient::stateChanged, this, [this](QMqttClient::ClientState state) {
+           qCInfo(m_logCategory) << "MQTT state changed:" << state;
+        });
+        QObject::connect(m_mqtt, &QMqttClient::messageReceived, this, &Mqtt::messageReceived);
     }
     else {
         qCInfo(m_logCategory) << "already initialized";
@@ -504,7 +494,7 @@ void Mqtt::initOnce() {
 void Mqtt::disconnect() {
     m_userDisconnect = true;
 
-    qCInfo(m_logCategory) << "Disconnecting from HomeAssistant";
+    qCInfo(m_logCategory) << "Disconnecting from MQTT";
     m_mqtt->disconnect();
 
     setState(DISCONNECTED);
