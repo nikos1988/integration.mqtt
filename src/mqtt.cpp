@@ -62,7 +62,81 @@ Mqtt::Mqtt(const QVariantMap &config, EntitiesInterface *entities,
             m_ip = map.value(Integration::KEY_DATA_IP).toString();
         }
     }
-    m_buttons = new QMap<QString, QList<Button>*>();
+    m_entityButtons = new QMap<QString, QList<Button>*>();
+    m_buttonFeatureMap = new QMap<QString, QString>();
+    m_buttonFeatureMap->insert("PLAY", "PLAY");
+    m_buttonFeatureMap->insert("PAUSE", "PAUSE");
+    m_buttonFeatureMap->insert("PLAY_PAUSE_TOGGLE", "PLAYTOGGLE");
+    m_buttonFeatureMap->insert("STOP", "STOP");
+    m_buttonFeatureMap->insert("FORWARD", "FORWARD");
+    m_buttonFeatureMap->insert("REVERSE", "BACKWARD");
+    m_buttonFeatureMap->insert("NEXT", "NEXT");
+    m_buttonFeatureMap->insert("PREVIOUS", "PREVIOUS");
+    m_buttonFeatureMap->insert("INFO", "INFO");
+    m_buttonFeatureMap->insert("MY_RECORDINGS", "RECORDINGS");
+    m_buttonFeatureMap->insert("RECORD", "RECORD");
+    m_buttonFeatureMap->insert("LIVE", "LIVE");
+    m_buttonFeatureMap->insert("DIGIT_0", "DIGIT_0");
+    m_buttonFeatureMap->insert("DIGIT_1", "DIGIT_1");
+    m_buttonFeatureMap->insert("DIGIT_2", "DIGIT_2");
+    m_buttonFeatureMap->insert("DIGIT_3", "DIGIT_3");
+    m_buttonFeatureMap->insert("DIGIT_4", "DIGIT_4");
+    m_buttonFeatureMap->insert("DIGIT_5", "DIGIT_5");
+    m_buttonFeatureMap->insert("DIGIT_6", "DIGIT_6");
+    m_buttonFeatureMap->insert("DIGIT_7", "DIGIT_7");
+    m_buttonFeatureMap->insert("DIGIT_8", "DIGIT_8");
+    m_buttonFeatureMap->insert("DIGIT_9", "DIGIT_9");
+    m_buttonFeatureMap->insert("DIGIT_10", "DIGIT_10");
+    m_buttonFeatureMap->insert("DIGIT_10PLUS", "DIGIT_10plus");
+    m_buttonFeatureMap->insert("DIGIT_11", "DIGIT_11");
+    m_buttonFeatureMap->insert("DIGIT_12", "DIGIT_12");
+    m_buttonFeatureMap->insert("DIGIT_SEPARATOR", "DIGIT_SEPARATOR");
+    m_buttonFeatureMap->insert("DIGIT_ENTER", "DIGIT_ENTER");
+    m_buttonFeatureMap->insert("CURSOR_UP", "CURSOR_UP");
+    m_buttonFeatureMap->insert("CURSOR_DOWN", "CURSOR_DOWN");
+    m_buttonFeatureMap->insert("CURSOR_LEFT", "CURSOR_LEFT");
+    m_buttonFeatureMap->insert("CURSOR_RIGHT", "CURSOR_RIGHT");
+    m_buttonFeatureMap->insert("CURSOR_ENTER", "CURSOR_OK");
+    m_buttonFeatureMap->insert("BACK", "BACK");
+    m_buttonFeatureMap->insert("MENU_HOME", "HOME");
+    m_buttonFeatureMap->insert("MENU", "MENU");
+    m_buttonFeatureMap->insert("EXIT", "EXIT");
+    m_buttonFeatureMap->insert("APP", "APP");
+    m_buttonFeatureMap->insert("POWEROFF", "POWER_OFF");
+    m_buttonFeatureMap->insert("POWERON", "POWER_ON");
+    m_buttonFeatureMap->insert("POWERTOGGLE", "POWER_TOGGLE");
+    m_buttonFeatureMap->insert("CHANNEL_UP", "CHANNEL_UP");
+    m_buttonFeatureMap->insert("CHANNEL_DOWN", "CHANNEL_DOWN");
+    m_buttonFeatureMap->insert("CHANNEL_SEARCH", "CHANNEL_SEARCH");
+    m_buttonFeatureMap->insert("FAVORITE", "FAVORITE");
+    m_buttonFeatureMap->insert("GUIDE", "GUIDE");
+    m_buttonFeatureMap->insert("FUNCTION_RED", "FUNCTION_RED");
+    m_buttonFeatureMap->insert("FUNCTION_GREEN", "FUNCTION_GREEN");
+    m_buttonFeatureMap->insert("FUNCTION_YELLOW", "FUNCTION_YELLOW");
+    m_buttonFeatureMap->insert("FUNCTION_BLUE", "FUNCTION_BLUE");
+    m_buttonFeatureMap->insert("FUNCTION_ORANGE", "FUNCTION_ORANGE");
+    m_buttonFeatureMap->insert("FORMAT_16_9", "FORMAT_16_9");
+    m_buttonFeatureMap->insert("FORMAT_4_3", "FORMAT_4_3");
+    m_buttonFeatureMap->insert("FORMAT_AUTO", "FORMAT_AUTO");
+    m_buttonFeatureMap->insert("VOLUME_UP", "VOLUME_UP");
+    m_buttonFeatureMap->insert("VOLUME_DOWN", "VOLUME_DOWN");
+    m_buttonFeatureMap->insert("MUTE_TOGGLE", "MUTE_TOGGLE");
+    m_buttonFeatureMap->insert("SOURCE", "SOURCE");
+    m_buttonFeatureMap->insert("INPUT_TUNER_1", "INPUT_TUNER_1");
+    m_buttonFeatureMap->insert("INPUT_TUNER_2", "INPUT_TUNER_2");
+    m_buttonFeatureMap->insert("INPUT_TUNER_Y", "INPUT_TUNER_X");
+    m_buttonFeatureMap->insert("INPUT_HDMI_1", "INPUT_HDMI_1");
+    m_buttonFeatureMap->insert("INPUT_HDMI_2", "INPUT_HDMI_2");
+    m_buttonFeatureMap->insert("INPUT_HDMI_X", "INPUT_HDMI_X");
+    m_buttonFeatureMap->insert("INPUT_X_1", "INPUT_X_1");
+    m_buttonFeatureMap->insert("INPUT_X_2", "INPUT_X_2");
+    m_buttonFeatureMap->insert("OUTPUT_HDMI_1", "OUTPUT_HDMI_1");
+    m_buttonFeatureMap->insert("OUTPUT_HDMI_2", "OUTPUT_HDMI_2");
+    m_buttonFeatureMap->insert("OUTPUT_DVI_1", "OUTPUT_DVI_1");
+    m_buttonFeatureMap->insert("OUTPUT_AUDIO_X", "OUTPUT_AUDIO_X");
+    m_buttonFeatureMap->insert("OUTPUT_X", "OUTPUT_X");
+    m_buttonFeatureMap->insert("NETFLIX", "SERVICE_NETFLIX");
+    m_buttonFeatureMap->insert("HULU", "SERVICE_HULU");
 }
 
 void Mqtt::handleDevices(QVariantMap &map)
@@ -75,9 +149,9 @@ void Mqtt::handleDevices(QVariantMap &map)
         QString deviceName = device.key();
         QString entityId = QString("MQTT_DEVICE.").append(deviceName);
         bool updateEntity = false;
-        if (m_buttons->contains(entityId)) {
+        if (m_entityButtons->contains(entityId)) {
             updateEntity = true;
-            m_buttons->value(entityId)->clear();
+            m_entityButtons->value(entityId)->clear();
         }
         qCInfo(m_logCategory) << "device:" << deviceName;
         QVariantMap buttons = device.value().toMap().value("Buttons").toMap();
@@ -99,10 +173,10 @@ void Mqtt::handleDevices(QVariantMap &map)
                 break;
             }
             Button b = Button(buttonName, buttonTopic, buttonPayloadString);
-            if (!m_buttons->contains(entityId)) {
-                m_buttons->insert(entityId, new QList<Button>({b}));
+            if (!m_entityButtons->contains(entityId)) {
+                m_entityButtons->insert(entityId, new QList<Button>({b}));
             } else {
-                m_buttons->value(entityId)->append(b);
+                m_entityButtons->value(entityId)->append(b);
             }
             //qCInfo(m_logCategory) << "button:" << buttonName << "topic:" << buttonTopic << "payload:" << buttonPayloadString;
 
@@ -139,9 +213,9 @@ void Mqtt::handleActivities(QVariantMap &map)
         QString activityName = activity.key();
         QString entityId = QString("MQTT_ACTIVITY.").append(activityName);
         bool updateEntity = false;
-        if (m_buttons->contains(entityId)) {
+        if (m_entityButtons->contains(entityId)) {
             updateEntity = true;
-            m_buttons->value(entityId)->clear();
+            m_entityButtons->value(entityId)->clear();
         }
         qCInfo(m_logCategory) << "activity:" << activityName;
         QStringList supportedFeatures = QStringList();
@@ -156,18 +230,20 @@ void Mqtt::handleActivities(QVariantMap &map)
         qCInfo(m_logCategory) << "deactivation payload:" << deactivationPayloadString;
         QString activationButtonName = "POWER_ON";
         Button activationButton = Button(activationButtonName, "mqtt_urc/activity", activationPayloadString);
-        if (!m_buttons->contains(entityId)) {
-            m_buttons->insert(entityId, new QList<Button>({activationButton}));
+        if (!m_entityButtons->contains(entityId)) {
+            m_entityButtons->insert(entityId, new QList<Button>({activationButton}));
         } else {
-            m_buttons->value(entityId)->append(activationButton);
+            m_entityButtons->value(entityId)->append(activationButton);
         }
         QString deactivationButtonName = "POWER_OFF";
         Button deactivationButton = Button(deactivationButtonName, "mqtt_urc/activity", deactivationPayloadString);
-        if (!m_buttons->contains(entityId)) {
-            m_buttons->insert(entityId, new QList<Button>({deactivationButton}));
+        if (!m_entityButtons->contains(entityId)) {
+            m_entityButtons->insert(entityId, new QList<Button>({deactivationButton}));
         } else {
-            m_buttons->value(entityId)->append(deactivationButton);
+            m_entityButtons->value(entityId)->append(deactivationButton);
         }
+        customFeatures.append(activationButtonName);
+        customFeatures.append(deactivationButtonName);
         supportedFeatures.append(activationButtonName);
         supportedFeatures.append(deactivationButtonName);
 
@@ -175,8 +251,8 @@ void Mqtt::handleActivities(QVariantMap &map)
         QVariantMap buttons = activity.value().toMap().value("buttons").toMap();
         for (QVariantMap::const_iterator button = buttons.begin(); button != buttons.end(); ++button) {
             QString buttonName = button.key();
-            QString buttonTopic = button.value().toList()[0].toString();
-            QVariant buttonPayload = button.value().toList()[1];
+            QString buttonTopic = button.value().toList()[1].toString();
+            QVariant buttonPayload = button.value().toList()[2];
             QString buttonPayloadString = "";
             switch(buttonPayload.userType()) {
                 case QMetaType::QString:
@@ -187,10 +263,10 @@ void Mqtt::handleActivities(QVariantMap &map)
                 break;
             }
             Button b = Button(buttonName, buttonTopic, buttonPayloadString);
-            if (!m_buttons->contains(entityId)) {
-                m_buttons->insert(entityId, new QList<Button>({b}));
+            if (!m_entityButtons->contains(entityId)) {
+                m_entityButtons->insert(entityId, new QList<Button>({b}));
             } else {
-                m_buttons->value(entityId)->append(b);
+                m_entityButtons->value(entityId)->append(b);
             }
             //qCInfo(m_logCategory) << "button:" << buttonName << "topic:" << buttonTopic << "payload:" << buttonPayloadString;
 
@@ -223,7 +299,7 @@ void Mqtt::messageReceived(const QByteArray &message, const QMqttTopicName &topi
     if (topic.name() == "mqtt_urc/config/current_activity") {
         QString currentActivity = QString("MQTT_ACTIVITY.").append(QString(message));
         qCInfo(m_logCategory) << "current activity" << currentActivity;
-        foreach (const QString &act, m_buttons->keys()) {
+        for (auto const &act : m_entityButtons->keys()) {
             if (act.startsWith("MQTT_ACTIVITY")) {
                 if (act != currentActivity) {
                     if (m_entities->getEntityInterface(act) != nullptr && m_entities->getEntityInterface(act)->isOn()) {
@@ -258,154 +334,19 @@ void Mqtt::messageReceived(const QByteArray &message, const QMqttTopicName &topi
 }
 
 QString Mqtt::buttonNameToSupportedFeatures(QString buttonName) {
-    QString name = buttonName.replace('_',' ').toUpper();
-    if (name == "PLAY")
-        return "PLAY";
-    if (name == "PAUSE")
-        return "PAUSE";
-    if (name == "PLAY PAUSE TOGGLE")
-        return "PLAYTOGGLE";
-    if (name == "STOP")
-        return "STOP";
-    if (name == "FORWARD")
-        return "FORWARD";
-    if (name == "REVERSE")
-        return "BACKWARD";
-    if (name == "NEXT")
-        return "NEXT";
-    if (name == "PREVIOUS")
-        return "PREVIOUS";
-    if (name == "INFO")
-        return "INFO";
-    if (name == "MY RECORDINGS")
-        return "RECORDINGS";
-    if (name == "RECORD")
-        return "RECORD";
-    if (name == "LIVE")
-        return "LIVE";
-    if (name == "DIGIT 0")
-        return "DIGIT_0";
-    if (name == "DIGIT 1")
-        return "DIGIT_1";
-    if (name == "DIGIT 2")
-        return "DIGIT_2";
-    if (name == "DIGIT 3")
-        return "DIGIT_3";
-    if (name == "DIGIT 4")
-        return "DIGIT_4";
-    if (name == "DIGIT 5")
-        return "DIGIT_5";
-    if (name == "DIGIT 6")
-        return "DIGIT_6";
-    if (name == "DIGIT 7")
-        return "DIGIT_7";
-    if (name == "DIGIT 8")
-        return "DIGIT_8";
-    if (name == "DIGIT 9")
-        return "DIGIT_9";
-    if (name == "DIGIT 10")
-        return "DIGIT_10";
-    if (name == "DIGIT 10PLUS")
-        return "DIGIT_10plus";
-    if (name == "DIGIT 11")
-        return "DIGIT_11";
-    if (name == "DIGIT 12")
-        return "DIGIT_12";
-    if (name == "DIGIT SEPARATOR")
-        return "DIGIT_SEPARATOR";
-    if (name == "DIGIT ENTER")
-        return "DIGIT_ENTER";
-    if (name == "CURSOR UP")
-        return "CURSOR_UP";
-    if (name == "CURSOR DOWN")
-        return "CURSOR_DOWN";
-    if (name == "CURSOR LEFT")
-        return "CURSOR_LEFT";
-    if (name == "CURSOR RIGHT")
-        return "CURSOR_RIGHT";
-    if (name == "CURSOR ENTER")
-        return "CURSOR_OK";
-    if (name == "BACK")
-        return "BACK";
-    if (name == "MENU HOME")
-        return "HOME";
-    if (name == "MENU")
-        return "MENU";
-    if (name == "EXIT")
-        return "EXIT";
-    if (name == "APP")
-        return "APP";
-    if (name == "POWEROFF")
-        return "POWER_OFF";
-    if (name == "POWERON")
-        return "POWER_ON";
-    if (name == "POWERTOGGLE")
-        return "POWER_TOGGLE";
-    if (name == "CHANNEL UP")
-        return "CHANNEL_UP";
-    if (name == "CHANNEL DOWN")
-        return "CHANNEL_DOWN";
-    if (name == "CHANNEL SEARCH")
-        return "CHANNEL_SEARCH";
-    if (name == "FAVORITE")
-        return "FAVORITE";
-    if (name == "GUIDE")
-        return "GUIDE";
-    if (name == "FUNCTION RED")
-        return "FUNCTION_RED";
-    if (name == "FUNCTION GREEN")
-        return "FUNCTION_GREEN";
-    if (name == "FUNCTION YELLOW")
-        return "FUNCTION_YELLOW";
-    if (name == "FUNCTION BLUE")
-        return "FUNCTION_BLUE";
-    if (name == "FUNCTION ORANGE")
-        return "FUNCTION_ORANGE";
-    if (name == "FORMAT 16 9")
-        return "FORMAT_16_9";
-    if (name == "FORMAT 4 3")
-        return "FORMAT_4_3";
-    if (name == "FORMAT AUTO")
-        return "FORMAT_AUTO";
-    if (name == "VOLUME UP")
-        return "VOLUME_UP";
-    if (name == "VOLUME DOWN")
-        return "VOLUME_DOWN";
-    if (name == "MUTE TOGGLE")
-        return "MUTE_TOGGLE";
-    if (name == "SOURCE")
-        return "SOURCE";
-    if (name == "INPUT TUNER 1")
-        return "INPUT_TUNER_1";
-    if (name == "INPUT TUNER 2")
-        return "INPUT_TUNER_2";
-    if (name == "INPUT TUNER Y")
-        return "INPUT_TUNER_X";
-    if (name == "INPUT HDMI 1")
-        return "INPUT_HDMI_1";
-    if (name == "INPUT HDMI 2")
-        return "INPUT_HDMI_2";
-    if (name == "INPUT HDMI X")
-        return "INPUT_HDMI_X";
-    if (name == "INPUT X 1")
-        return "INPUT_X_1";
-    if (name == "INPUT X 2")
-        return "INPUT_X_2";
-    if (name == "OUTPUT HDMI 1")
-        return "OUTPUT_HDMI_1";
-    if (name == "OUTPUT HDMI 2")
-        return "OUTPUT_HDMI_2";
-    if (name == "OUTPUT DVI 1")
-        return "OUTPUT_DVI_1";
-    if (name == "OUTPUT AUDIO X")
-        return "OUTPUT_AUDIO_X";
-    if (name == "OUTPUT X")
-        return "OUTPUT_X";
-    if (name == "NETFLIX")
-        return "SERVICE_NETFLIX";
-    if (name == "HULU")
-        return "SERVICE_HULU";
+    QString name = buttonName.replace(' ','_').toUpper();
 
+    if (m_buttonFeatureMap->contains(name))
+        return m_buttonFeatureMap->value(name);
+    else
+        return "";
+}
+
+QString Mqtt::supportedFeatureToButtonName(QString supportedFeature) {
+    for (auto const &key : m_buttonFeatureMap->keys()) {
+        if (m_buttonFeatureMap->value(key) == supportedFeature)
+            return key;
+    }
     return "";
 }
 
@@ -512,19 +453,32 @@ void Mqtt::sendCommand(const QString &type, const QString &entity_id, int comman
     qCInfo(m_logCategory) << "sending command" << entity_id << command << param;
     EntityInterface *entity = m_entities->getEntityInterface(entity_id);
     QString commandName = entity->getCommandName(command);
+    QString buttonName = supportedFeatureToButtonName(commandName);
     qCInfo(m_logCategory) << "command name" << commandName;
-    if (commandName == "POWER_ON") {
-        //TODO power on
-        entity->setState(RemoteDef::States::ONLINE);
+    qCInfo(m_logCategory) << "button name" << buttonName;
+
+    QList<Button>* buttons = m_entityButtons->value(entity_id);
+
+    for (auto const &button : *buttons) {
+        if (button.name == buttonName) {
+            qCInfo(m_logCategory) << "sending command button" << button.name << button.topic << button.payload;
+            m_mqtt->publish(QMqttTopicName(button.topic), button.payload.toUtf8());
+            break;
+        }
     }
-    else if (commandName == "POWER_OFF") {
-        //TODO power off
-        entity->setState(RemoteDef::States::OFFLINE);
-    }
+
+//    if (commandName == "POWER_ON") {
+//        //TODO power on
+//        entity->setState(RemoteDef::States::ONLINE);
+//    }
+//    else if (commandName == "POWER_OFF") {
+//        //TODO power off
+//        entity->setState(RemoteDef::States::OFFLINE);
+//    }
 }
 
 void Mqtt::sendCustomCommand(const QString &type, const QString &entityId, int command, const QVariant &param) {
-    Button button = m_buttons->value(entityId)->at(command);
-    qCInfo(m_logCategory) << "sending custom command" << button.topic << button.payload;
+    Button button = m_entityButtons->value(entityId)->at(command);
+    qCInfo(m_logCategory) << "sending custom command button" << button.name << button.topic << button.payload;
     m_mqtt->publish(QMqttTopicName(button.topic), button.payload.toUtf8());
 }

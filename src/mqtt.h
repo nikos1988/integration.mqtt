@@ -96,12 +96,14 @@ class Mqtt : public Integration {
     QString        m_ip;
     QMqttClient*   m_mqtt;
     bool           m_initialized = false;
-    QMap<QString, QList<Button>*>* m_buttons;
+    QMap<QString, QList<Button>*>* m_entityButtons;
+    QMap<QString, QString>* m_buttonFeatureMap;
     int            m_tries;
     bool           m_userDisconnect = false;
     void handleDevices(QVariantMap &map);
     void handleActivities(QVariantMap &map);
     void initOnce();
     QString buttonNameToSupportedFeatures(QString buttonName);
+    QString supportedFeatureToButtonName(QString supportedFeature);
     bool supportedFeature(QString &buttonName, QStringList &supportedFeatures);
 };
