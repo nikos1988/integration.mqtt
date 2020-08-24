@@ -106,4 +106,5 @@ class Mqtt : public Integration {
     QString buttonNameToSupportedFeatures(QString buttonName);
     QString supportedFeatureToButtonName(QString supportedFeature);
     bool supportedFeature(QString &buttonName, QStringList &supportedFeatures);
+    void createButtons(QVariantMap& buttons, bool updateEntity, QString entityId, QString deviceName, QStringList& supportedFeatures, QStringList& customFeatures);
 };

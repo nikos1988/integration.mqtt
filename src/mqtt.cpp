@@ -139,6 +139,52 @@ Mqtt::Mqtt(const QVariantMap &config, EntitiesInterface *entities,
     m_buttonFeatureMap->insert("HULU", "SERVICE_HULU");
 }
 
+void Mqtt::createButtons(QVariantMap& buttons, bool updateEntity, QString entityId, QString deviceName, QStringList& supportedFeatures, QStringList& customFeatures)
+{
+    // iterate through all buttons
+    for (QVariantMap::const_iterator button = buttons.begin(); button != buttons.end(); ++button) {
+        QString buttonName = button.key();
+        QString buttonTopic = entityId.startsWith("MQTT_DEVICE") ? button.value().toList()[0].toString() : button.value().toList()[1].toString();
+        QVariant buttonPayload = entityId.startsWith("MQTT_DEVICE") ? button.value().toList()[1] :  button.value().toList()[2];
+        QString buttonPayloadString = "";
+        switch(buttonPayload.userType()) {
+            case QMetaType::QString:
+                buttonPayloadString = buttonPayload.toString();
+            break;
+            case QMetaType::QVariantMap:
+                buttonPayloadString = QString(QJsonDocument::fromVariant(buttonPayload.toMap()).toJson()).replace('\n',"");
+            break;
+        }
+        Button b = Button(buttonName, buttonTopic, buttonPayloadString);
+        if (!m_entityButtons->contains(entityId)) {
+            m_entityButtons->insert(entityId, new QList<Button>({b}));
+        } else {
+            m_entityButtons->value(entityId)->append(b);
+        }
+        //qCInfo(m_logCategory) << "button:" << buttonName << "topic:" << buttonTopic << "payload:" << buttonPayloadString;
+
+        supportedFeature(buttonName, supportedFeatures);
+        customFeatures.append(buttonName);
+    }
+    if (updateEntity) {
+        qCInfo(m_logCategory) << "updating entity:" << entityId << "with custom features:" << customFeatures;
+        // if the entity is already in the list, skip
+        for (int i = 0; i < m_allAvailableEntities.length(); i++) {
+            if (m_allAvailableEntities[i].toMap().value(Integration::KEY_ENTITY_ID).toString() == entityId) {
+                QVariantMap entityMap = m_allAvailableEntities[i].toMap();
+                entityMap[Integration::KEY_SUPPORTED_FEATURES] = supportedFeatures;
+                if (customFeatures.size() > 0) {
+                    qWarning() << "updating custom features:" << customFeatures;
+                    entityMap[Integration::KEY_CUSTOM_FEATURES] = customFeatures;
+                }
+            }
+        }
+    } else {
+        qCInfo(m_logCategory) << "adding entity:" << entityId << "with custom features:" << customFeatures;
+        addAvailableEntityWithCustomFeatures(entityId, "remote", integrationId(), deviceName, supportedFeatures, customFeatures);
+    }
+}
+
 void Mqtt::handleDevices(QVariantMap &map)
 {
     qCInfo(m_logCategory) << "converting devices to map";
@@ -153,53 +199,11 @@ void Mqtt::handleDevices(QVariantMap &map)
             updateEntity = true;
             m_entityButtons->value(entityId)->clear();
         }
-        qCInfo(m_logCategory) << "device:" << deviceName;
-        QVariantMap buttons = device.value().toMap().value("Buttons").toMap();
         QStringList supportedFeatures = QStringList();
         QStringList customFeatures = QStringList();
-
-        // iterate through all buttons
-        for (QVariantMap::const_iterator button = buttons.begin(); button != buttons.end(); ++button) {
-            QString buttonName = button.key();
-            QString buttonTopic = button.value().toList()[0].toString();
-            QVariant buttonPayload = button.value().toList()[1];
-            QString buttonPayloadString = "";
-            switch(buttonPayload.userType()) {
-                case QMetaType::QString:
-                    buttonPayloadString = buttonPayload.toString();
-                break;
-                case QMetaType::QVariantMap:
-                    buttonPayloadString = QString(QJsonDocument::fromVariant(buttonPayload.toMap()).toJson()).replace('\n',"");
-                break;
-            }
-            Button b = Button(buttonName, buttonTopic, buttonPayloadString);
-            if (!m_entityButtons->contains(entityId)) {
-                m_entityButtons->insert(entityId, new QList<Button>({b}));
-            } else {
-                m_entityButtons->value(entityId)->append(b);
-            }
-            //qCInfo(m_logCategory) << "button:" << buttonName << "topic:" << buttonTopic << "payload:" << buttonPayloadString;
-
-            supportedFeature(buttonName, supportedFeatures);
-            customFeatures.append(buttonName);
-        }
-        if (updateEntity) {
-            qCInfo(m_logCategory) << "updating entity:" << entityId << "with custom features:" << customFeatures;
-            // if the entity is already in the list, skip
-            for (int i = 0; i < m_allAvailableEntities.length(); i++) {
-                if (m_allAvailableEntities[i].toMap().value(Integration::KEY_ENTITY_ID).toString() == entityId) {
-                    QVariantMap entityMap = m_allAvailableEntities[i].toMap();
-                    entityMap[Integration::KEY_SUPPORTED_FEATURES] = supportedFeatures;
-                    if (customFeatures.size() > 0) {
-                        qWarning() << "updating custom features:" << customFeatures;
-                        entityMap[Integration::KEY_CUSTOM_FEATURES] = customFeatures;
-                    }
-                }
-            }
-        } else {
-            qCInfo(m_logCategory) << "adding entity:" << entityId << "with custom features:" << customFeatures;
-            addAvailableEntityWithCustomFeatures(entityId, "remote", integrationId(), deviceName, supportedFeatures, customFeatures);
-        }
+        qCInfo(m_logCategory) << "device:" << deviceName;
+        QVariantMap buttons = device.value().toMap().value("Buttons").toMap();
+        createButtons(buttons, updateEntity, entityId, deviceName, supportedFeatures, customFeatures);
     }
 }
 
@@ -249,47 +253,7 @@ void Mqtt::handleActivities(QVariantMap &map)
 
         // iterate through all buttons
         QVariantMap buttons = activity.value().toMap().value("buttons").toMap();
-        for (QVariantMap::const_iterator button = buttons.begin(); button != buttons.end(); ++button) {
-            QString buttonName = button.key();
-            QString buttonTopic = button.value().toList()[1].toString();
-            QVariant buttonPayload = button.value().toList()[2];
-            QString buttonPayloadString = "";
-            switch(buttonPayload.userType()) {
-                case QMetaType::QString:
-                    buttonPayloadString = buttonPayload.toString();
-                break;
-                case QMetaType::QVariantMap:
-                    buttonPayloadString = QString(QJsonDocument::fromVariant(buttonPayload.toMap()).toJson()).replace('\n',"");
-                break;
-            }
-            Button b = Button(buttonName, buttonTopic, buttonPayloadString);
-            if (!m_entityButtons->contains(entityId)) {
-                m_entityButtons->insert(entityId, new QList<Button>({b}));
-            } else {
-                m_entityButtons->value(entityId)->append(b);
-            }
-            //qCInfo(m_logCategory) << "button:" << buttonName << "topic:" << buttonTopic << "payload:" << buttonPayloadString;
-
-            supportedFeature(buttonName, supportedFeatures);
-            customFeatures.append(buttonName);
-        }
-        if (updateEntity) {
-            qCInfo(m_logCategory) << "updating entity:" << entityId << "with custom features:" << customFeatures;
-            // if the entity is already in the list, skip
-            for (int i = 0; i < m_allAvailableEntities.length(); i++) {
-                if (m_allAvailableEntities[i].toMap().value(Integration::KEY_ENTITY_ID).toString() == entityId) {
-                    QVariantMap entityMap = m_allAvailableEntities[i].toMap();
-                    entityMap[Integration::KEY_SUPPORTED_FEATURES] = supportedFeatures;
-                    if (customFeatures.size() > 0) {
-                        qWarning() << "updating custom features:" << customFeatures;
-                        entityMap[Integration::KEY_CUSTOM_FEATURES] = customFeatures;
-                    }
-                }
-            }
-        } else {
-            qCInfo(m_logCategory) << "adding entity:" << entityId << "with custom features:" << customFeatures;
-            addAvailableEntityWithCustomFeatures(entityId, "remote", integrationId(), activityName, supportedFeatures, customFeatures);
-        }
+        createButtons(buttons, updateEntity, entityId, activityName, supportedFeatures, customFeatures);
     }
 }
 
