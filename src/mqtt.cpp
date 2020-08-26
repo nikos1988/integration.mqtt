@@ -232,14 +232,14 @@ void Mqtt::handleActivities(QVariantMap &map)
         QString deactivationPayloadString = QString(QJsonDocument::fromVariant(deactivation).toJson()).replace('\n',"");
         qCInfo(m_logCategory) << "activation payload:" << activationPayloadString;
         qCInfo(m_logCategory) << "deactivation payload:" << deactivationPayloadString;
-        QString activationButtonName = "POWER_ON";
+        QString activationButtonName = "POWERON";
         Button activationButton = Button(activationButtonName, "mqtt_urc/activity", activationPayloadString);
         if (!m_entityButtons->contains(entityId)) {
             m_entityButtons->insert(entityId, new QList<Button>({activationButton}));
         } else {
             m_entityButtons->value(entityId)->append(activationButton);
         }
-        QString deactivationButtonName = "POWER_OFF";
+        QString deactivationButtonName = "POWEROFF";
         Button deactivationButton = Button(deactivationButtonName, "mqtt_urc/activity", deactivationPayloadString);
         if (!m_entityButtons->contains(entityId)) {
             m_entityButtons->insert(entityId, new QList<Button>({deactivationButton}));
@@ -422,23 +422,17 @@ void Mqtt::sendCommand(const QString &type, const QString &entity_id, int comman
     qCInfo(m_logCategory) << "button name" << buttonName;
 
     QList<Button>* buttons = m_entityButtons->value(entity_id);
+    qCDebug(m_logCategory) << "entity buttons:" << buttons->size();
 
     for (auto const &button : *buttons) {
-        if (button.name == buttonName) {
+        if (button.name.toUpper() == buttonName) {
             qCInfo(m_logCategory) << "sending command button" << button.name << button.topic << button.payload;
             m_mqtt->publish(QMqttTopicName(button.topic), button.payload.toUtf8());
             break;
+        } else {
+            //qCDebug(m_logCategory) << button.name.toUpper() << "!=" << buttonName;
         }
     }
-
-//    if (commandName == "POWER_ON") {
-//        //TODO power on
-//        entity->setState(RemoteDef::States::ONLINE);
-//    }
-//    else if (commandName == "POWER_OFF") {
-//        //TODO power off
-//        entity->setState(RemoteDef::States::OFFLINE);
-//    }
 }
 
 void Mqtt::sendCustomCommand(const QString &type, const QString &entityId, int command, const QVariant &param) {
