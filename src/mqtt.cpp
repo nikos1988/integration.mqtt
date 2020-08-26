@@ -232,24 +232,22 @@ void Mqtt::handleActivities(QVariantMap &map)
         QString deactivationPayloadString = QString(QJsonDocument::fromVariant(deactivation).toJson()).replace('\n',"");
         qCInfo(m_logCategory) << "activation payload:" << activationPayloadString;
         qCInfo(m_logCategory) << "deactivation payload:" << deactivationPayloadString;
-        QString activationButtonName = "POWERON";
-        Button activationButton = Button(activationButtonName, "mqtt_urc/activity", activationPayloadString);
+        Button activationButton = Button("POWERON", "mqtt_urc/activity", activationPayloadString);
         if (!m_entityButtons->contains(entityId)) {
             m_entityButtons->insert(entityId, new QList<Button>({activationButton}));
         } else {
             m_entityButtons->value(entityId)->append(activationButton);
         }
-        QString deactivationButtonName = "POWEROFF";
-        Button deactivationButton = Button(deactivationButtonName, "mqtt_urc/activity", deactivationPayloadString);
+        Button deactivationButton = Button("POWEROFF", "mqtt_urc/activity", deactivationPayloadString);
         if (!m_entityButtons->contains(entityId)) {
             m_entityButtons->insert(entityId, new QList<Button>({deactivationButton}));
         } else {
             m_entityButtons->value(entityId)->append(deactivationButton);
         }
-        customFeatures.append(activationButtonName);
-        customFeatures.append(deactivationButtonName);
-        supportedFeatures.append(activationButtonName);
-        supportedFeatures.append(deactivationButtonName);
+        customFeatures.append("POWER_ON");
+        customFeatures.append("POWER_OFF");
+        supportedFeatures.append("POWER_ON");
+        supportedFeatures.append("POWER_OFF");
 
         // iterate through all buttons
         QVariantMap buttons = activity.value().toMap().value("buttons").toMap();
