@@ -26,23 +26,23 @@
 
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QtDebug>
 #include <QMetaType>
+#include <QtDebug>
 
-#include "mqtt_supportedfeatures.h"
 #include "math.h"
+#include "mqtt_supportedfeatures.h"
 #include "yio-interface/entities/blindinterface.h"
 #include "yio-interface/entities/climateinterface.h"
 #include "yio-interface/entities/lightinterface.h"
 #include "yio-interface/entities/mediaplayerinterface.h"
-#include "yio-interface/entities/switchinterface.h"
 #include "yio-interface/entities/remoteinterface.h"
+#include "yio-interface/entities/switchinterface.h"
 
 MqttPlugin::MqttPlugin() : Plugin("mqtt", USE_WORKER_THREAD) {}
 
 Integration *MqttPlugin::createIntegration(const QVariantMap &config, EntitiesInterface *entities,
-                                                    NotificationsInterface *notifications, YioAPIInterface *api,
-                                                    ConfigInterface *configObj) {
+                                           NotificationsInterface *notifications, YioAPIInterface *api,
+                                           ConfigInterface *configObj) {
     qCInfo(m_logCategory) << "Creating MQTT integration plugin" << PLUGIN_VERSION;
 
     return new Mqtt(config, entities, notifications, api, configObj, this);
@@ -52,9 +52,8 @@ Integration *MqttPlugin::createIntegration(const QVariantMap &config, EntitiesIn
 //// MQTT THREAD CLASS
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Mqtt::Mqtt(const QVariantMap &config, EntitiesInterface *entities,
-                             NotificationsInterface *notifications, YioAPIInterface *api, ConfigInterface *configObj,
-                             Plugin *plugin)
+Mqtt::Mqtt(const QVariantMap &config, EntitiesInterface *entities, NotificationsInterface *notifications,
+           YioAPIInterface *api, ConfigInterface *configObj, Plugin *plugin)
     : Integration(config, entities, notifications, api, configObj, plugin) {
     for (QVariantMap::const_iterator iter = config.begin(); iter != config.end(); ++iter) {
         if (iter.key() == Integration::OBJ_DATA) {
@@ -62,7 +61,7 @@ Mqtt::Mqtt(const QVariantMap &config, EntitiesInterface *entities,
             m_ip = map.value(Integration::KEY_DATA_IP).toString();
         }
     }
-    m_entityButtons = new QMap<QString, QList<Button>*>();
+    m_entityButtons = new QMap<QString, QList<Button> *>();
     m_buttonFeatureMap = new QMap<QString, QString>();
     m_buttonFeatureMap->insert("PLAY", "PLAY");
     m_buttonFeatureMap->insert("PAUSE", "PAUSE");
@@ -139,21 +138,24 @@ Mqtt::Mqtt(const QVariantMap &config, EntitiesInterface *entities,
     m_buttonFeatureMap->insert("HULU", "SERVICE_HULU");
 }
 
-void Mqtt::createButtons(QVariantMap& buttons, bool updateEntity, QString entityId, QString deviceName, QStringList& supportedFeatures, QStringList& customFeatures)
-{
+void Mqtt::createButtons(QVariantMap *buttons, bool updateEntity, QString entityId, QString deviceName,
+                         QStringList *supportedFeatures, QStringList *customFeatures) {
     // iterate through all buttons
-    for (QVariantMap::const_iterator button = buttons.begin(); button != buttons.end(); ++button) {
+    for (QVariantMap::const_iterator button = buttons->begin(); button != buttons->end(); ++button) {
         QString buttonName = button.key();
-        QString buttonTopic = entityId.startsWith("MQTT_DEVICE") ? button.value().toList()[0].toString() : button.value().toList()[1].toString();
-        QVariant buttonPayload = entityId.startsWith("MQTT_DEVICE") ? button.value().toList()[1] :  button.value().toList()[2];
+        QString buttonTopic = entityId.startsWith("MQTT_DEVICE") ? button.value().toList()[0].toString()
+                                                                 : button.value().toList()[1].toString();
+        QVariant buttonPayload =
+            entityId.startsWith("MQTT_DEVICE") ? button.value().toList()[1] : button.value().toList()[2];
         QString buttonPayloadString = "";
-        switch(buttonPayload.userType()) {
+        switch (buttonPayload.userType()) {
             case QMetaType::QString:
                 buttonPayloadString = buttonPayload.toString();
-            break;
+                break;
             case QMetaType::QVariantMap:
-                buttonPayloadString = QString(QJsonDocument::fromVariant(buttonPayload.toMap()).toJson()).replace('\n',"");
-            break;
+                buttonPayloadString =
+                    QString(QJsonDocument::fromVariant(buttonPayload.toMap()).toJson()).replace('\n', "");
+                break;
         }
         Button b = Button(buttonName, buttonTopic, buttonPayloadString);
         if (!m_entityButtons->contains(entityId)) {
@@ -161,10 +163,11 @@ void Mqtt::createButtons(QVariantMap& buttons, bool updateEntity, QString entity
         } else {
             m_entityButtons->value(entityId)->append(b);
         }
-        //qCInfo(m_logCategory) << "button:" << buttonName << "topic:" << buttonTopic << "payload:" << buttonPayloadString;
+        // qCInfo(m_logCategory) << "button:" << buttonName << "topic:" << buttonTopic << "payload:" <<
+        // buttonPayloadString;
 
         supportedFeature(buttonName, supportedFeatures);
-        customFeatures.append(buttonName);
+        customFeatures->append(buttonName);
     }
     if (updateEntity) {
         qCInfo(m_logCategory) << "updating entity:" << entityId << "with custom features:" << customFeatures;
@@ -172,21 +175,21 @@ void Mqtt::createButtons(QVariantMap& buttons, bool updateEntity, QString entity
         for (int i = 0; i < m_allAvailableEntities.length(); i++) {
             if (m_allAvailableEntities[i].toMap().value(Integration::KEY_ENTITY_ID).toString() == entityId) {
                 QVariantMap entityMap = m_allAvailableEntities[i].toMap();
-                entityMap[Integration::KEY_SUPPORTED_FEATURES] = supportedFeatures;
-                if (customFeatures.size() > 0) {
+                entityMap[Integration::KEY_SUPPORTED_FEATURES] = *supportedFeatures;
+                if (customFeatures->size() > 0) {
                     qWarning() << "updating custom features:" << customFeatures;
-                    entityMap[Integration::KEY_CUSTOM_FEATURES] = customFeatures;
+                    entityMap[Integration::KEY_CUSTOM_FEATURES] = *customFeatures;
                 }
             }
         }
     } else {
         qCInfo(m_logCategory) << "adding entity:" << entityId << "with custom features:" << customFeatures;
-        addAvailableEntityWithCustomFeatures(entityId, "remote", integrationId(), deviceName, supportedFeatures, customFeatures);
+        addAvailableEntityWithCustomFeatures(entityId, "remote", integrationId(), deviceName, *supportedFeatures,
+                                             *customFeatures);
     }
 }
 
-void Mqtt::handleDevices(QVariantMap &map)
-{
+void Mqtt::handleDevices(const QVariantMap &map) {
     qCInfo(m_logCategory) << "converting devices to map";
     QVariantMap devices = map.value("devices").toMap();
 
@@ -194,7 +197,7 @@ void Mqtt::handleDevices(QVariantMap &map)
     for (QVariantMap::const_iterator device = devices.begin(); device != devices.end(); ++device) {
         QString deviceName = device.key();
         QString entityId = QString("MQTT_DEVICE.").append(deviceName);
-        bool updateEntity = false;
+        bool    updateEntity = false;
         if (m_entityButtons->contains(entityId)) {
             updateEntity = true;
             m_entityButtons->value(entityId)->clear();
@@ -203,12 +206,11 @@ void Mqtt::handleDevices(QVariantMap &map)
         QStringList customFeatures = QStringList();
         qCInfo(m_logCategory) << "device:" << deviceName;
         QVariantMap buttons = device.value().toMap().value("Buttons").toMap();
-        createButtons(buttons, updateEntity, entityId, deviceName, supportedFeatures, customFeatures);
+        createButtons(&buttons, updateEntity, entityId, deviceName, &supportedFeatures, &customFeatures);
     }
 }
 
-void Mqtt::handleActivities(QVariantMap &map)
-{
+void Mqtt::handleActivities(const QVariantMap &map) {
     qCInfo(m_logCategory) << "converting activites to map";
     QVariantMap activities = map.value("activities").toMap();
 
@@ -216,7 +218,7 @@ void Mqtt::handleActivities(QVariantMap &map)
     for (QVariantMap::const_iterator activity = activities.begin(); activity != activities.end(); ++activity) {
         QString activityName = activity.key();
         QString entityId = QString("MQTT_ACTIVITY.").append(activityName);
-        bool updateEntity = false;
+        bool    updateEntity = false;
         if (m_entityButtons->contains(entityId)) {
             updateEntity = true;
             m_entityButtons->value(entityId)->clear();
@@ -228,8 +230,9 @@ void Mqtt::handleActivities(QVariantMap &map)
         // activation and deactivation buttons
         QVariant activation = activity.value().toMap().value("activation").toList()[0];
         QVariant deactivation = activity.value().toMap().value("deactivation").toList()[0];
-        QString activationPayloadString = QString(QJsonDocument::fromVariant(activation).toJson()).replace('\n',"");
-        QString deactivationPayloadString = QString(QJsonDocument::fromVariant(deactivation).toJson()).replace('\n',"");
+        QString  activationPayloadString = QString(QJsonDocument::fromVariant(activation).toJson()).replace('\n', "");
+        QString  deactivationPayloadString =
+            QString(QJsonDocument::fromVariant(deactivation).toJson()).replace('\n', "");
         qCInfo(m_logCategory) << "activation payload:" << activationPayloadString;
         qCInfo(m_logCategory) << "deactivation payload:" << deactivationPayloadString;
         Button activationButton = Button("POWERON", "mqtt_urc/activity", activationPayloadString);
@@ -251,12 +254,12 @@ void Mqtt::handleActivities(QVariantMap &map)
 
         // iterate through all buttons
         QVariantMap buttons = activity.value().toMap().value("buttons").toMap();
-        createButtons(buttons, updateEntity, entityId, activityName, supportedFeatures, customFeatures);
+        createButtons(&buttons, updateEntity, entityId, activityName, &supportedFeatures, &customFeatures);
     }
 }
 
 void Mqtt::messageReceived(const QByteArray &message, const QMqttTopicName &topic) {
-    qCInfo(m_logCategory) << "message received on topic: " + topic.name(); // + " payload: " << QString(message);
+    qCInfo(m_logCategory) << "message received on topic: " + topic.name();  // + " payload: " << QString(message);
 
     if (topic.name() == "mqtt_urc/config/current_activity") {
         QString currentActivity = QString("MQTT_ACTIVITY.").append(QString(message));
@@ -269,7 +272,8 @@ void Mqtt::messageReceived(const QByteArray &message, const QMqttTopicName &topi
                         m_entities->getEntityInterface(act)->setState(RemoteDef::States::OFFLINE);
                     }
                 } else {
-                    if (m_entities->getEntityInterface(act) != nullptr && m_entities->getEntityInterface(act)->state() != RemoteDef::States::ONLINE) {
+                    if (m_entities->getEntityInterface(act) != nullptr &&
+                        m_entities->getEntityInterface(act)->state() != RemoteDef::States::ONLINE) {
                         qCInfo(m_logCategory) << "set state online for activity" << act;
                         m_entities->getEntityInterface(act)->setState(RemoteDef::States::ONLINE);
                     }
@@ -280,7 +284,7 @@ void Mqtt::messageReceived(const QByteArray &message, const QMqttTopicName &topi
     }
 
     QJsonParseError parseerror;
-    QJsonDocument doc = QJsonDocument::fromJson(message, &parseerror);
+    QJsonDocument   doc = QJsonDocument::fromJson(message, &parseerror);
     if (parseerror.error != QJsonParseError::NoError) {
         qCCritical(m_logCategory) << "JSON error:" << parseerror.errorString();
         return;
@@ -289,33 +293,34 @@ void Mqtt::messageReceived(const QByteArray &message, const QMqttTopicName &topi
     QVariantMap map = doc.toVariant().toMap();
     if (map.firstKey() == "devices" && topic.name() == "mqtt_urc/config/devices") {
         handleDevices(map);
-    }
-    else if (map.firstKey() == "activities" && topic.name() == "mqtt_urc/config/activities") {
+    } else if (map.firstKey() == "activities" && topic.name() == "mqtt_urc/config/activities") {
         handleActivities(map);
     }
 }
 
 QString Mqtt::buttonNameToSupportedFeatures(QString buttonName) {
-    QString name = buttonName.replace(' ','_').toUpper();
+    QString name = buttonName.replace(' ', '_').toUpper();
 
-    if (m_buttonFeatureMap->contains(name))
+    if (m_buttonFeatureMap->contains(name)) {
         return m_buttonFeatureMap->value(name);
-    else
+    } else {
         return "";
+    }
 }
 
 QString Mqtt::supportedFeatureToButtonName(QString supportedFeature) {
     for (auto const &key : m_buttonFeatureMap->keys()) {
-        if (m_buttonFeatureMap->value(key) == supportedFeature)
+        if (m_buttonFeatureMap->value(key) == supportedFeature) {
             return key;
+        }
     }
     return "";
 }
 
-bool Mqtt::supportedFeature(QString &buttonName, QStringList &supportedFeatures) {
+bool Mqtt::supportedFeature(const QString &buttonName, QStringList *supportedFeatures) {
     QString feature = buttonNameToSupportedFeatures(buttonName);
     if (feature != "") {
-        supportedFeatures.append(feature);
+        supportedFeatures->append(feature);
         return true;
     } else {
         return false;
@@ -341,55 +346,55 @@ void Mqtt::initOnce() {
         m_mqtt->setHostname(m_ip);
         m_mqtt->setPort(1883);
         m_mqtt->setClientId("yio-remote-plugin");
-        qCInfo(m_logCategory) << "MQTT Broker: " << m_ip  + ":" << 1883;
+        qCInfo(m_logCategory) << "MQTT Broker: " << m_ip + ":" << 1883;
         QObject::connect(m_mqtt, &QMqttClient::connected, this, [this]() {
-           qCInfo(m_logCategory) << "MQTT connected!";
-           auto subDevices = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/devices"), 0);
-           qCInfo(m_logCategory) << "subDevices state:" << subDevices->state();
-           auto subActivities = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/activities"), 0);
-           qCInfo(m_logCategory) << "subActivities state:" << subActivities->state();
+            qCInfo(m_logCategory) << "MQTT connected!";
+            auto subDevices = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/devices"), 0);
+            qCInfo(m_logCategory) << "subDevices state:" << subDevices->state();
+            auto subActivities = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/activities"), 0);
+            qCInfo(m_logCategory) << "subActivities state:" << subActivities->state();
 
-           QTimer* deviceRequestTimer = new QTimer(this);
-           deviceRequestTimer->setSingleShot(true);
-           QObject::connect(deviceRequestTimer, &QTimer::timeout, [=]() {
-               qint32 pubDeviceRequest = m_mqtt->publish(QMqttTopicName("mqtt_urc/config/request"), "{\"RequestConfig\":\"devices\"}");
-               qCInfo(m_logCategory) << "pubDeviceRequest id:" << pubDeviceRequest;
-               deviceRequestTimer->deleteLater();
-           });
+            QTimer *deviceRequestTimer = new QTimer(this);
+            deviceRequestTimer->setSingleShot(true);
+            QObject::connect(deviceRequestTimer, &QTimer::timeout, [=]() {
+                qint32 pubDeviceRequest =
+                    m_mqtt->publish(QMqttTopicName("mqtt_urc/config/request"), "{\"RequestConfig\":\"devices\"}");
+                qCInfo(m_logCategory) << "pubDeviceRequest id:" << pubDeviceRequest;
+                deviceRequestTimer->deleteLater();
+            });
 
-           QTimer* activityRequestTimer = new QTimer(this);
-           activityRequestTimer->setSingleShot(true);
-           QObject::connect(activityRequestTimer, &QTimer::timeout, [=]() {
-               qint32 pubActivitiesRequest = m_mqtt->publish(QMqttTopicName("mqtt_urc/config/request"), "{\"RequestConfig\":\"activities\"}");
-               qCInfo(m_logCategory) << "pubActivitiesRequest id:" << pubActivitiesRequest;
-               activityRequestTimer->deleteLater();
-           });
+            QTimer *activityRequestTimer = new QTimer(this);
+            activityRequestTimer->setSingleShot(true);
+            QObject::connect(activityRequestTimer, &QTimer::timeout, [=]() {
+                qint32 pubActivitiesRequest =
+                    m_mqtt->publish(QMqttTopicName("mqtt_urc/config/request"), "{\"RequestConfig\":\"activities\"}");
+                qCInfo(m_logCategory) << "pubActivitiesRequest id:" << pubActivitiesRequest;
+                activityRequestTimer->deleteLater();
+            });
 
-           QTimer* currentActivityRequestTimer = new QTimer(this);
-           currentActivityRequestTimer->setSingleShot(true);
-           QObject::connect(currentActivityRequestTimer, &QTimer::timeout, [=]() {
-               qint32 pubCurrentActivitiesRequest = m_mqtt->publish(QMqttTopicName("mqtt_urc/config/request"), "{\"RequestConfig\":\"currentActivity\"}");
-               qCInfo(m_logCategory) << "pubCurrentActivitiesRequest id:" << pubCurrentActivitiesRequest;
-               currentActivityRequestTimer->deleteLater();
-           });
+            QTimer *currentActivityRequestTimer = new QTimer(this);
+            currentActivityRequestTimer->setSingleShot(true);
+            QObject::connect(currentActivityRequestTimer, &QTimer::timeout, [=]() {
+                qint32 pubCurrentActivitiesRequest = m_mqtt->publish(QMqttTopicName("mqtt_urc/config/request"),
+                                                                     "{\"RequestConfig\":\"currentActivity\"}");
+                qCInfo(m_logCategory) << "pubCurrentActivitiesRequest id:" << pubCurrentActivitiesRequest;
+                currentActivityRequestTimer->deleteLater();
+            });
 
-           deviceRequestTimer->start(0);
-           activityRequestTimer->start(2000);
-           currentActivityRequestTimer->start(5000);
+            deviceRequestTimer->start(0);
+            activityRequestTimer->start(2000);
+            currentActivityRequestTimer->start(5000);
 
-           auto subCurrentActivity = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/current_activity"), 0);
-           qCInfo(m_logCategory) << "subCurrentActivity state:" << subCurrentActivity->state();
-
+            auto subCurrentActivity = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/current_activity"), 0);
+            qCInfo(m_logCategory) << "subCurrentActivity state:" << subCurrentActivity->state();
         });
-        QObject::connect(m_mqtt, &QMqttClient::disconnected, this, [this]() {
-           qCInfo(m_logCategory) << "MQTT disconnected!";
-        });
+        QObject::connect(m_mqtt, &QMqttClient::disconnected, this,
+                         [this]() { qCInfo(m_logCategory) << "MQTT disconnected!"; });
         QObject::connect(m_mqtt, &QMqttClient::stateChanged, this, [this](QMqttClient::ClientState state) {
-           qCInfo(m_logCategory) << "MQTT state changed:" << state;
+            qCInfo(m_logCategory) << "MQTT state changed:" << state;
         });
         QObject::connect(m_mqtt, &QMqttClient::messageReceived, this, &Mqtt::messageReceived);
-    }
-    else {
+    } else {
         qCInfo(m_logCategory) << "already initialized";
     }
 }
@@ -403,23 +408,19 @@ void Mqtt::disconnect() {
     setState(DISCONNECTED);
 }
 
-void Mqtt::enterStandby() {
-    qCDebug(m_logCategory) << "Entering standby";
-}
+void Mqtt::enterStandby() { qCDebug(m_logCategory) << "Entering standby"; }
 
-void Mqtt::leaveStandby() {
-    qCDebug(m_logCategory) << "Leaving standby";
-}
+void Mqtt::leaveStandby() { qCDebug(m_logCategory) << "Leaving standby"; }
 
 void Mqtt::sendCommand(const QString &type, const QString &entity_id, int command, const QVariant &param) {
     qCInfo(m_logCategory) << "sending command" << entity_id << command << param;
     EntityInterface *entity = m_entities->getEntityInterface(entity_id);
-    QString commandName = entity->getCommandName(command);
-    QString buttonName = supportedFeatureToButtonName(commandName);
+    QString          commandName = entity->getCommandName(command);
+    QString          buttonName = supportedFeatureToButtonName(commandName);
     qCInfo(m_logCategory) << "command name" << commandName;
     qCInfo(m_logCategory) << "button name" << buttonName;
 
-    QList<Button>* buttons = m_entityButtons->value(entity_id);
+    QList<Button> *buttons = m_entityButtons->value(entity_id);
     qCDebug(m_logCategory) << "entity buttons:" << buttons->size();
 
     for (auto const &button : *buttons) {
@@ -428,7 +429,7 @@ void Mqtt::sendCommand(const QString &type, const QString &entity_id, int comman
             m_mqtt->publish(QMqttTopicName(button.topic), button.payload.toUtf8());
             break;
         } else {
-            //qCDebug(m_logCategory) << button.name.toUpper() << "!=" << buttonName;
+            // qCDebug(m_logCategory) << button.name.toUpper() << "!=" << buttonName;
         }
     }
 }

@@ -72,10 +72,10 @@ class Mqtt : public Integration {
 
  public:
     Mqtt(const QVariantMap& config, EntitiesInterface* entities, NotificationsInterface* notifications,
-                  YioAPIInterface* api, ConfigInterface* configObj, Plugin* plugin);
+         YioAPIInterface* api, ConfigInterface* configObj, Plugin* plugin);
 
     void sendCommand(const QString& type, const QString& entityId, int command, const QVariant& param) override;
-    void sendCustomCommand(const QString &type, const QString &entityId, int command, const QVariant &param) override;
+    void sendCustomCommand(const QString& type, const QString& entityId, int command, const QVariant& param) override;
 
     struct Button {
         Button(QString name, QString topic, QString payload) : name(name), topic(topic), payload(payload) {}
@@ -90,21 +90,22 @@ class Mqtt : public Integration {
     void enterStandby() override;
     void leaveStandby() override;
 
-    void messageReceived(const QByteArray& message, const QMqttTopicName &topic);
+    void messageReceived(const QByteArray& message, const QMqttTopicName& topic);
 
  private:
-    QString        m_ip;
-    QMqttClient*   m_mqtt;
-    bool           m_initialized = false;
+    QString                        m_ip;
+    QMqttClient*                   m_mqtt;
+    bool                           m_initialized = false;
     QMap<QString, QList<Button>*>* m_entityButtons;
-    QMap<QString, QString>* m_buttonFeatureMap;
-    int            m_tries;
-    bool           m_userDisconnect = false;
-    void handleDevices(QVariantMap &map);
-    void handleActivities(QVariantMap &map);
-    void initOnce();
-    QString buttonNameToSupportedFeatures(QString buttonName);
-    QString supportedFeatureToButtonName(QString supportedFeature);
-    bool supportedFeature(QString &buttonName, QStringList &supportedFeatures);
-    void createButtons(QVariantMap& buttons, bool updateEntity, QString entityId, QString deviceName, QStringList& supportedFeatures, QStringList& customFeatures);
+    QMap<QString, QString>*        m_buttonFeatureMap;
+    int                            m_tries;
+    bool                           m_userDisconnect = false;
+    void                           handleDevices(const QVariantMap& map);
+    void                           handleActivities(const QVariantMap& map);
+    void                           initOnce();
+    QString                        buttonNameToSupportedFeatures(const QString buttonName);
+    QString                        supportedFeatureToButtonName(const QString supportedFeature);
+    bool                           supportedFeature(const QString& buttonName, QStringList* supportedFeatures);
+    void createButtons(QVariantMap* buttons, bool updateEntity, QString entityId, QString deviceName,
+                       QStringList* supportedFeatures, QStringList* customFeatures);
 };
