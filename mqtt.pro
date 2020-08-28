@@ -56,8 +56,7 @@ unix {
 QMAKE_SUBSTITUTES += mqtt.json.in version.txt.in
 # output path must be included for the output file from QMAKE_SUBSTITUTES
 INCLUDEPATH += $$OUT_PWD
-HEADERS  += src/mqtt.h \
-            src/mqtt_supportedfeatures.h
+HEADERS  += src/mqtt.h
 SOURCES  += src/mqtt.cpp
 TARGET    = mqtt
 

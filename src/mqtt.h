@@ -33,7 +33,6 @@
 #include <QVariant>
 #include <QtMqtt/QMqttClient>
 
-#include "mqtt_supportedfeatures.h"
 #include "yio-interface/configinterface.h"
 #include "yio-interface/entities/entitiesinterface.h"
 #include "yio-interface/entities/entityinterface.h"
