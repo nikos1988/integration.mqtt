@@ -377,9 +377,15 @@ void Mqtt::initOnce() {
                 currentActivityRequestTimer->deleteLater();
             });
 
-            deviceRequestTimer->start(1000);
-            activityRequestTimer->start(3000);
-            currentActivityRequestTimer->start(5000);
+            // only request mqtt entities when not leaving standby or when entity button map is empty
+            if (!m_leftStandby || m_entityButtons->size() == 0) {
+                deviceRequestTimer->start(1000);
+                activityRequestTimer->start(3000);
+                currentActivityRequestTimer->start(5000);
+            } else {
+                currentActivityRequestTimer->start(1000);
+                m_leftStandby = false;
+            }
         });
         m_mqttReconnectTimer->setSingleShot(true);
         QObject::connect(m_mqttReconnectTimer, &QTimer::timeout, this, [=]() {
@@ -417,6 +423,7 @@ void Mqtt::enterStandby() {
 
 void Mqtt::leaveStandby() {
     qCDebug(m_logCategory) << "Leaving standby";
+    m_leftStandby = true;
     connect();
 }
 
