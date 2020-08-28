@@ -407,20 +407,17 @@ void Mqtt::initOnce() {
 void Mqtt::disconnect() {
     setState(DISCONNECTED);
     qCInfo(m_logCategory) << "Disconnecting from MQTT";
-    m_mqtt->disconnect();
+    m_mqtt->disconnectFromHost();
 }
 
 void Mqtt::enterStandby() {
     qCDebug(m_logCategory) << "Entering standby";
-    setState(DISCONNECTED);
-    m_mqtt->disconnect();
+    disconnect();
 }
 
 void Mqtt::leaveStandby() {
     qCDebug(m_logCategory) << "Leaving standby";
-    setState(CONNECTING);
-    m_mqtt->connectToHost();
-    setState(CONNECTED);
+    connect();
 }
 
 void Mqtt::sendCommand(const QString &type, const QString &entity_id, int command, const QVariant &param) {
