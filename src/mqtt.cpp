@@ -62,6 +62,7 @@ Mqtt::Mqtt(const QVariantMap &config, EntitiesInterface *entities, Notifications
             m_ip = map.value(Integration::KEY_DATA_IP).toString();
         }
     }
+    m_mqttReconnectTimer = new QTimer(this);
     m_entityButtons = new QMap<QString, QList<Button> *>();
     m_buttonFeatureMap = new QMap<QString, QString>();
     m_buttonFeatureMap->insert("PLAY", "PLAY");
@@ -164,27 +165,24 @@ void Mqtt::createButtons(QVariantMap *buttons, bool updateEntity, QString entity
         } else {
             m_entityButtons->value(entityId)->append(b);
         }
-        // qCInfo(m_logCategory) << "button:" << buttonName << "topic:" << buttonTopic << "payload:" <<
-        // buttonPayloadString;
 
         supportedFeature(buttonName, supportedFeatures);
         customFeatures->append(buttonName);
     }
     if (updateEntity) {
-        qCInfo(m_logCategory) << "updating entity:" << entityId << "with custom features:" << customFeatures;
+        qCInfo(m_logCategory) << "updating entity:" << entityId << "with custom features:" << *customFeatures;
         // if the entity is already in the list, skip
         for (int i = 0; i < m_allAvailableEntities.length(); i++) {
             if (m_allAvailableEntities[i].toMap().value(Integration::KEY_ENTITY_ID).toString() == entityId) {
                 QVariantMap entityMap = m_allAvailableEntities[i].toMap();
                 entityMap[Integration::KEY_SUPPORTED_FEATURES] = *supportedFeatures;
                 if (customFeatures->size() > 0) {
-                    qWarning() << "updating custom features:" << customFeatures;
                     entityMap[Integration::KEY_CUSTOM_FEATURES] = *customFeatures;
                 }
             }
         }
     } else {
-        qCInfo(m_logCategory) << "adding entity:" << entityId << "with custom features:" << customFeatures;
+        qCInfo(m_logCategory) << "adding entity:" << entityId << "with custom features:" << *customFeatures;
         addAvailableEntityWithCustomFeatures(entityId, "remote", integrationId(), deviceName, *supportedFeatures,
                                              *customFeatures);
     }
@@ -329,12 +327,10 @@ bool Mqtt::supportedFeature(const QString &buttonName, QStringList *supportedFea
 }
 
 void Mqtt::connect() {
-    m_userDisconnect = false;
     setState(CONNECTING);
     initOnce();
     qCInfo(m_logCategory) << "Connecting to MQTT";
     m_mqtt->connectToHost();
-
     setState(CONNECTED);
 }
 
@@ -350,10 +346,10 @@ void Mqtt::initOnce() {
         qCInfo(m_logCategory) << "MQTT Broker: " << m_ip + ":" << 1883;
         QObject::connect(m_mqtt, &QMqttClient::connected, this, [this]() {
             qCInfo(m_logCategory) << "MQTT connected!";
-            auto subDevices = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/devices"), 0);
-            qCInfo(m_logCategory) << "subDevices state:" << subDevices->state();
-            auto subActivities = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/activities"), 0);
-            qCInfo(m_logCategory) << "subActivities state:" << subActivities->state();
+            m_mqttReconnectTimer->stop();
+            m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/devices"), 0);
+            m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/activities"), 0);
+            m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/current_activity"), 0);
 
             QTimer *deviceRequestTimer = new QTimer(this);
             deviceRequestTimer->setSingleShot(true);
@@ -382,15 +378,24 @@ void Mqtt::initOnce() {
                 currentActivityRequestTimer->deleteLater();
             });
 
-            deviceRequestTimer->start(0);
-            activityRequestTimer->start(2000);
+            deviceRequestTimer->start(1000);
+            activityRequestTimer->start(3000);
             currentActivityRequestTimer->start(5000);
-
-            auto subCurrentActivity = m_mqtt->subscribe(QMqttTopicFilter("mqtt_urc/config/current_activity"), 0);
-            qCInfo(m_logCategory) << "subCurrentActivity state:" << subCurrentActivity->state();
         });
-        QObject::connect(m_mqtt, &QMqttClient::disconnected, this,
-                         [this]() { qCInfo(m_logCategory) << "MQTT disconnected!"; });
+        m_mqttReconnectTimer->setSingleShot(true);
+        QObject::connect(m_mqttReconnectTimer, &QTimer::timeout, this, [=]() {
+            qCInfo(m_logCategory) << "retry connect to MQTT";
+            m_mqtt->connectToHost();
+        });
+        QObject::connect(m_mqtt, &QMqttClient::disconnected, this, [this]() {
+            qCInfo(m_logCategory) << "MQTT disconnected!";
+            if (state() != DISCONNECTED) {
+                qCInfo(m_logCategory) << "starting reconnect timer";
+                m_mqttReconnectTimer->start(10000);
+            } else {
+                qCInfo(m_logCategory) << "not starting reconnect timer (integration state is DISCONNECTED)";
+            }
+        });
         QObject::connect(m_mqtt, &QMqttClient::stateChanged, this, [this](QMqttClient::ClientState state) {
             qCInfo(m_logCategory) << "MQTT state changed:" << state;
         });
@@ -401,17 +406,23 @@ void Mqtt::initOnce() {
 }
 
 void Mqtt::disconnect() {
-    m_userDisconnect = true;
-
+    setState(DISCONNECTED);
     qCInfo(m_logCategory) << "Disconnecting from MQTT";
     m_mqtt->disconnect();
-
-    setState(DISCONNECTED);
 }
 
-void Mqtt::enterStandby() { qCDebug(m_logCategory) << "Entering standby"; }
+void Mqtt::enterStandby() {
+    qCDebug(m_logCategory) << "Entering standby";
+    setState(DISCONNECTED);
+    m_mqtt->disconnect();
+}
 
-void Mqtt::leaveStandby() { qCDebug(m_logCategory) << "Leaving standby"; }
+void Mqtt::leaveStandby() {
+    qCDebug(m_logCategory) << "Leaving standby";
+    setState(CONNECTING);
+    m_mqtt->connectToHost();
+    setState(CONNECTED);
+}
 
 void Mqtt::sendCommand(const QString &type, const QString &entity_id, int command, const QVariant &param) {
     qCInfo(m_logCategory) << "sending command" << entity_id << command << param;

@@ -98,8 +98,7 @@ class Mqtt : public Integration {
     bool                           m_initialized = false;
     QMap<QString, QList<Button>*>* m_entityButtons;
     QMap<QString, QString>*        m_buttonFeatureMap;
-    int                            m_tries;
-    bool                           m_userDisconnect = false;
+    QTimer*                        m_mqttReconnectTimer;
     void                           handleDevices(const QVariantMap& map);
     void                           handleActivities(const QVariantMap& map);
     void                           initOnce();
