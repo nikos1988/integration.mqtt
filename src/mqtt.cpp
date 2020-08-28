@@ -31,7 +31,6 @@
 #include <QtDebug>
 
 #include "math.h"
-#include "mqtt_supportedfeatures.h"
 #include "yio-interface/entities/blindinterface.h"
 #include "yio-interface/entities/climateinterface.h"
 #include "yio-interface/entities/lightinterface.h"
