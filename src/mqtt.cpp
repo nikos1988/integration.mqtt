@@ -99,7 +99,7 @@ Mqtt::Mqtt(const QVariantMap &config, EntitiesInterface *entities, Notifications
     m_buttonFeatureMap->insert("CURSOR_ENTER", "CURSOR_OK");
     m_buttonFeatureMap->insert("BACK", "BACK");
     m_buttonFeatureMap->insert("MENU_HOME", "HOME");
-    m_buttonFeatureMap->insert("MENU", "MENU");
+    m_buttonFeatureMap->insert("MENU", "GUIDE");
     m_buttonFeatureMap->insert("EXIT", "EXIT");
     m_buttonFeatureMap->insert("APP", "APP");
     m_buttonFeatureMap->insert("POWEROFF", "POWER_OFF");
@@ -109,7 +109,7 @@ Mqtt::Mqtt(const QVariantMap &config, EntitiesInterface *entities, Notifications
     m_buttonFeatureMap->insert("CHANNEL_DOWN", "CHANNEL_DOWN");
     m_buttonFeatureMap->insert("CHANNEL_SEARCH", "CHANNEL_SEARCH");
     m_buttonFeatureMap->insert("FAVORITE", "FAVORITE");
-    m_buttonFeatureMap->insert("GUIDE", "GUIDE");
+    m_buttonFeatureMap->insert("GUIDE", "MENU");
     m_buttonFeatureMap->insert("FUNCTION_RED", "FUNCTION_RED");
     m_buttonFeatureMap->insert("FUNCTION_GREEN", "FUNCTION_GREEN");
     m_buttonFeatureMap->insert("FUNCTION_YELLOW", "FUNCTION_YELLOW");
