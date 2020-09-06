@@ -338,10 +338,13 @@ void Mqtt::initOnce() {
         m_initialized = true;
         qCInfo(m_logCategory) << "creating MQTT client";
         m_mqtt = new QMqttClient(this);
-        m_mqtt->setHostname(m_ip);
-        m_mqtt->setPort(1883);
+        QStringList hostname_port = m_ip.split(":");
+        QString     hostname = hostname_port[0];
+        int         port = (hostname_port.size() == 2) ? hostname_port[1].toInt() : 1883;
+        m_mqtt->setHostname(hostname);
+        m_mqtt->setPort(port);
         m_mqtt->setClientId("yio-remote-plugin");
-        qCInfo(m_logCategory) << "MQTT Broker: " << m_ip + ":" << 1883;
+        qCInfo(m_logCategory) << "MQTT Broker: " << hostname + ":" << port;
         QObject::connect(m_mqtt, &QMqttClient::connected, this, [this]() {
             qCInfo(m_logCategory) << "MQTT connected!";
             m_mqttReconnectTimer->stop();
