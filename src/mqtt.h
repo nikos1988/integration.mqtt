@@ -75,7 +75,6 @@ class Mqtt : public Integration {
          YioAPIInterface* api, ConfigInterface* configObj, Plugin* plugin);
 
     void sendCommand(const QString& type, const QString& entityId, int command, const QVariant& param) override;
-    void sendCustomCommand(const QString& type, const QString& entityId, int command, const QVariant& param) override;
 
     struct Button {
         Button(QString name, QString topic, QString payload) : name(name), topic(topic), payload(payload) {}

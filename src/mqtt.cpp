@@ -182,8 +182,7 @@ void Mqtt::createButtons(QVariantMap *buttons, bool updateEntity, QString entity
         }
     } else {
         qCInfo(m_logCategory) << "adding entity:" << entityId << "with custom features:" << *customFeatures;
-        addAvailableEntityWithCustomFeatures(entityId, "remote", integrationId(), deviceName, *supportedFeatures,
-                                             *customFeatures);
+        addAvailableEntity(entityId, "remote", integrationId(), deviceName, *supportedFeatures, *customFeatures);
     }
 }
 
@@ -428,29 +427,29 @@ void Mqtt::leaveStandby() {
 }
 
 void Mqtt::sendCommand(const QString &type, const QString &entity_id, int command, const QVariant &param) {
-    qCInfo(m_logCategory) << "sending command" << entity_id << command << param;
-    EntityInterface *entity = m_entities->getEntityInterface(entity_id);
-    QString          commandName = entity->getCommandName(command);
-    QString          buttonName = supportedFeatureToButtonName(commandName);
-    qCInfo(m_logCategory) << "command name" << commandName;
-    qCInfo(m_logCategory) << "button name" << buttonName;
+    if (param.type() == QVariant::String && param.toString() == "custom_command") {
+        Button button = m_entityButtons->value(entity_id)->at(command);
+        qCInfo(m_logCategory) << "sending custom command button" << button.name << button.topic << button.payload;
+        m_mqtt->publish(QMqttTopicName(button.topic), button.payload.toUtf8());
+    } else {
+        qCInfo(m_logCategory) << "sending command" << entity_id << command << param;
+        EntityInterface *entity = m_entities->getEntityInterface(entity_id);
+        QString          commandName = entity->getCommandName(command);
+        QString          buttonName = supportedFeatureToButtonName(commandName);
+        qCInfo(m_logCategory) << "command name" << commandName;
+        qCInfo(m_logCategory) << "button name" << buttonName;
 
-    QList<Button> *buttons = m_entityButtons->value(entity_id);
-    qCDebug(m_logCategory) << "entity buttons:" << buttons->size();
+        QList<Button> *buttons = m_entityButtons->value(entity_id);
+        qCDebug(m_logCategory) << "entity buttons:" << buttons->size();
 
-    for (auto const &button : *buttons) {
-        if (button.name.toUpper() == buttonName) {
-            qCInfo(m_logCategory) << "sending command button" << button.name << button.topic << button.payload;
-            m_mqtt->publish(QMqttTopicName(button.topic), button.payload.toUtf8());
-            break;
-        } else {
-            // qCDebug(m_logCategory) << button.name.toUpper() << "!=" << buttonName;
+        for (auto const &button : *buttons) {
+            if (button.name.toUpper() == buttonName) {
+                qCInfo(m_logCategory) << "sending command button" << button.name << button.topic << button.payload;
+                m_mqtt->publish(QMqttTopicName(button.topic), button.payload.toUtf8());
+                break;
+            } else {
+                // qCDebug(m_logCategory) << button.name.toUpper() << "!=" << buttonName;
+            }
         }
     }
-}
-
-void Mqtt::sendCustomCommand(const QString &type, const QString &entityId, int command, const QVariant &param) {
-    Button button = m_entityButtons->value(entityId)->at(command);
-    qCInfo(m_logCategory) << "sending custom command button" << button.name << button.topic << button.payload;
-    m_mqtt->publish(QMqttTopicName(button.topic), button.payload.toUtf8());
 }
