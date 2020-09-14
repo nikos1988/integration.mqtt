@@ -430,6 +430,11 @@ void Mqtt::leaveStandby() {
 }
 
 void Mqtt::sendCommand(const QString &type, const QString &entity_id, int command, const QVariant &param) {
+    if (m_mqtt->state() != QMqttClient::Connected) {
+        qCWarning(m_logCategory) << "MQTT client not connected";
+        return;
+    }
+
     if (param.type() == QVariant::String && param.toString() == "custom_command") {
         Button button = m_entityButtons->value(entity_id)->at(command);
         qCInfo(m_logCategory) << "sending custom command button" << button.name << button.topic << button.payload;
