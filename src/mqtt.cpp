@@ -28,6 +28,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QMetaType>
+#include <QNetworkInterface>
 #include <QtDebug>
 
 #include "math.h"
@@ -344,7 +345,17 @@ void Mqtt::initOnce() {
         int         port = (hostname_port.size() == 2) ? hostname_port[1].toInt() : 1883;
         m_mqtt->setHostname(hostname);
         m_mqtt->setPort(port);
-        m_mqtt->setClientId("yio-remote-plugin");
+        QString macAddr;
+        QString clientId = "YIO-Remote-";
+        for (QNetworkInterface interface : QNetworkInterface::allInterfaces()) {
+            if (!(interface.flags() & QNetworkInterface::IsLoopBack)) {
+                macAddr = interface.hardwareAddress();
+                break;
+            }
+        }
+        macAddr.replace(":", "");
+        clientId.append(macAddr);
+        m_mqtt->setClientId(clientId);
         qCInfo(m_logCategory) << "MQTT Broker: " << hostname + ":" << port;
         QObject::connect(m_mqtt, &QMqttClient::connected, this, [this]() {
             qCInfo(m_logCategory) << "MQTT connected!";
