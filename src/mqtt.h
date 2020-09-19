@@ -94,8 +94,7 @@ class Mqtt : public Integration {
  private:
     QString                        m_ip;
     QMqttClient*                   m_mqtt;
-    bool                           m_initialized = false;
-    bool                           m_leftStandby = false;
+    bool                           m_initialized;
     QMap<QString, QList<Button>*>* m_entityButtons;
     QMap<QString, QString>*        m_buttonFeatureMap;
     QTimer*                        m_mqttReconnectTimer;

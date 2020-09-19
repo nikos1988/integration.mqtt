@@ -61,6 +61,7 @@ Mqtt::Mqtt(const QVariantMap &config, EntitiesInterface *entities, Notifications
             m_ip = map.value(Integration::KEY_DATA_IP).toString();
         }
     }
+    m_initialized = false;
     m_mqttReconnectTimer = new QTimer(this);
     m_entityButtons = new QMap<QString, QList<Button> *>();
     m_buttonFeatureMap = new QMap<QString, QString>();
@@ -379,14 +380,13 @@ void Mqtt::initOnce() {
                 currentActivityRequestTimer->deleteLater();
             });
 
-            // only request mqtt entities when not leaving standby or when entity button map is empty
-            if (!m_leftStandby || m_entityButtons->size() == 0) {
-                deviceRequestTimer->start(1000);
-                activityRequestTimer->start(3000);
-                currentActivityRequestTimer->start(5000);
+            // only request mqtt entities when entity button map is empty
+            if (m_entityButtons->size() == 0) {
+                deviceRequestTimer->start(100);
+                activityRequestTimer->start(1500);
+                currentActivityRequestTimer->start(3000);
             } else {
-                currentActivityRequestTimer->start(1000);
-                m_leftStandby = false;
+                currentActivityRequestTimer->start(100);
             }
         });
         m_mqttReconnectTimer->setSingleShot(true);
@@ -418,16 +418,9 @@ void Mqtt::disconnect() {
     m_mqtt->disconnectFromHost();
 }
 
-void Mqtt::enterStandby() {
-    qCDebug(m_logCategory) << "Entering standby";
-    disconnect();
-}
+void Mqtt::enterStandby() { qCDebug(m_logCategory) << "Entering standby"; }
 
-void Mqtt::leaveStandby() {
-    qCDebug(m_logCategory) << "Leaving standby";
-    m_leftStandby = true;
-    connect();
-}
+void Mqtt::leaveStandby() { qCDebug(m_logCategory) << "Leaving standby"; }
 
 void Mqtt::sendCommand(const QString &type, const QString &entity_id, int command, const QVariant &param) {
     if (m_mqtt->state() != QMqttClient::Connected) {
