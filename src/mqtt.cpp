@@ -417,6 +417,9 @@ void Mqtt::initOnce() {
         QObject::connect(m_mqtt, &QMqttClient::stateChanged, this, [this](QMqttClient::ClientState state) {
             qCInfo(m_logCategory) << "MQTT state changed:" << state;
         });
+        QObject::connect(m_mqtt, &QMqttClient::errorChanged, this, [this](QMqttClient::ClientError error) {
+            qCCritical(m_logCategory) << "MQTT error changed:" << error;
+        });
         QObject::connect(m_mqtt, &QMqttClient::messageReceived, this, &Mqtt::messageReceived);
     } else {
         qCInfo(m_logCategory) << "already initialized";
@@ -451,8 +454,12 @@ void Mqtt::sendCommand(const QString &type, const QString &entity_id, int comman
         qCInfo(m_logCategory) << "command name" << commandName;
         qCInfo(m_logCategory) << "button name" << buttonName;
 
+        if (!m_entityButtons->contains(entity_id)) {
+            qCWarning(m_logCategory) << "m_entityButtons does not contain id:" << entity_id;
+            return;
+        }
         QList<Button> *buttons = m_entityButtons->value(entity_id);
-        qCDebug(m_logCategory) << "entity buttons:" << buttons->size();
+        qCInfo(m_logCategory) << "entity buttons:" << buttons->size();
 
         for (auto const &button : *buttons) {
             if (button.name.toUpper() == buttonName) {
