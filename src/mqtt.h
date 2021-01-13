@@ -24,6 +24,8 @@
 
 #pragma once
 
+#include <QtMqtt/qmqttclient.h>
+
 #include <QColor>
 #include <QLoggingCategory>
 #include <QObject>
@@ -31,7 +33,6 @@
 #include <QThread>
 #include <QTimer>
 #include <QVariant>
-#include <QtMqtt/QMqttClient>
 
 #include "yio-interface/configinterface.h"
 #include "yio-interface/entities/entitiesinterface.h"
